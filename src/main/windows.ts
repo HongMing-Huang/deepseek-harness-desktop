@@ -1,14 +1,33 @@
-import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  shell,
+  WebContentsView,
+  type MenuItemConstructorOptions
+} from 'electron'
 import { join } from 'node:path'
 
 /**
- * 窗口创建的单一职责小模块：
- * - 主窗口（splash 引导 → dsh web）；
- * - 设置窗口（单例，重复打开时聚焦）；
- * - 应用菜单（设置入口 Cmd/Ctrl+, 与基础编辑能力）。
+ * 窗口与视图布局的单一职责小模块：
+ * - 主窗口：splash 承载于窗口自身 webContents；运行时就绪后改为
+ *   contentView 双子视图 —— dshWebView（全幅或左侧，加载 dsh web，无 preload）
+ *   + activityView（右侧 260px Token 活动图，带 preload）；
+ * - 设置 / 插件窗口（单例，重复打开时聚焦）；
+ * - 应用菜单（设置入口 Cmd/Ctrl+,、工具→插件…、查看→Token 活动图）。
  */
 
 let settingsWindow: BrowserWindow | null = null
+let pluginsWindow: BrowserWindow | null = null
+
+/* ── 主窗口子视图（模块级单例：应用仅一个主窗口，closed 时清理） ── */
+
+const ACTIVITY_SIDEBAR_WIDTH = 260
+
+let mainWindow: BrowserWindow | null = null
+let dshWebView: WebContentsView | null = null
+let activityView: WebContentsView | null = null
+let sidebarVisible = true
 
 /** 渲染页面地址：dev 态走 renderer dev server，打包态读 out/renderer */
 function pageUrl(page: string): string {
@@ -28,7 +47,18 @@ async function loadWindowPage(win: BrowserWindow, page: string): Promise<void> {
   }
 }
 
-/** 创建主窗口（加载 splash 页；ready 事件由调用方处理） */
+/** 外链拦截：本机 dsh web 放行，其余交给系统浏览器（主窗口与 dshWebView 共用策略） */
+function applyExternalLinkPolicy(webContents: Electron.WebContents): void {
+  webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
+      return { action: 'allow' }
+    }
+    void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+}
+
+/** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换双子视图布局） */
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -50,18 +80,118 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => win.show())
 
-  // 应用内导航拦截：仅允许本机 dsh web；外链交给系统浏览器
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
-      return { action: 'allow' }
-    }
-    void shell.openExternal(url)
-    return { action: 'deny' }
+  // splash 期（窗口自身 webContents）沿用同一外链策略
+  applyExternalLinkPolicy(win.webContents)
+
+  // 子视图随内容区尺寸重排（resize / 最大化 / 全屏均触发）
+  win.on('resize', () => layoutMainViews())
+
+  win.on('closed', () => {
+    dshWebView = null
+    activityView = null
+    if (mainWindow === win) mainWindow = null
   })
 
+  mainWindow = win
   void loadWindowPage(win, 'splash.html')
   return win
 }
+
+/**
+ * 运行时就绪：创建（或复用）双子视图并加载 dsh web。
+ * - dshWebView：远程内容，无 preload、强隔离、沙箱；沿用外链拦截策略；
+ * - activityView：自有页面 activity.html，带 preload（window.api 白名单）；
+ * 幂等：重复调用（重启运行时）只重载 dshWebView 的地址。
+ */
+export function showDshWebView(win: BrowserWindow, url: string): void {
+  if (win.isDestroyed()) return
+  mainWindow = win
+
+  if (!dshWebView) {
+    dshWebView = new WebContentsView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false
+      }
+    })
+    applyExternalLinkPolicy(dshWebView.webContents)
+    win.contentView.addChildView(dshWebView)
+  }
+
+  if (!activityView) {
+    activityView = new WebContentsView({
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        webviewTag: false
+      }
+    })
+    win.contentView.addChildView(activityView)
+    void loadViewPage(activityView, 'activity.html')
+  }
+
+  void dshWebView.webContents.loadURL(url)
+  layoutMainViews()
+}
+
+/** 视图页面加载（dev server / 打包文件两种形态） */
+async function loadViewPage(view: WebContentsView, page: string): Promise<void> {
+  const url = pageUrl(page)
+  if (url.startsWith('http')) {
+    await view.webContents.loadURL(url)
+  } else {
+    await view.webContents.loadFile(url)
+  }
+}
+
+/** 按侧栏开关重算两个子视图 bounds（侧栏开=右侧 260px，关=dsh 全幅） */
+function layoutMainViews(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const [width, height] = mainWindow.getContentSize()
+
+  if (dshWebView) {
+    const mainWidth = sidebarVisible ? Math.max(0, width - ACTIVITY_SIDEBAR_WIDTH) : width
+    dshWebView.setBounds({ x: 0, y: 0, width: mainWidth, height })
+  }
+
+  if (activityView && mainWindow) {
+    const content = mainWindow.contentView
+    // WebContentsView 无 getParentView：以宿主子视图列表判断挂载态
+    const attached = content.children.includes(activityView)
+    if (sidebarVisible) {
+      if (!attached) {
+        content.addChildView(activityView)
+      }
+      activityView.setBounds({
+        x: Math.max(0, width - ACTIVITY_SIDEBAR_WIDTH),
+        y: 0,
+        width: ACTIVITY_SIDEBAR_WIDTH,
+        height
+      })
+    } else if (attached) {
+      // 关闭侧栏：移出视图树（保留 webContents，重开即恢复）
+      content.removeChildView(activityView)
+    }
+  }
+}
+
+/** 切换 Token 活动侧栏（菜单勾选项调用），返回切换后的可见状态 */
+export function toggleActivitySidebar(): boolean {
+  sidebarVisible = !sidebarVisible
+  layoutMainViews()
+  return sidebarVisible
+}
+
+/** 侧栏当前可见状态（构建菜单勾选态用） */
+export function isActivitySidebarVisible(): boolean {
+  return sidebarVisible
+}
+
+/* ── 设置窗口（单例） ── */
 
 /** 打开设置窗口（单例：已存在则聚焦） */
 export function openSettingsWindow(): void {
@@ -94,7 +224,42 @@ export function openSettingsWindow(): void {
   })
 }
 
-/** 应用菜单：设置入口 + 基础编辑能力（输入框复制粘贴必需） */
+/* ── 插件窗口（单例） ── */
+
+/** 打开插件管理窗口（单例：已存在则聚焦） */
+export function openPluginsWindow(): void {
+  if (pluginsWindow && !pluginsWindow.isDestroyed()) {
+    pluginsWindow.focus()
+    return
+  }
+  pluginsWindow = new BrowserWindow({
+    width: 720,
+    height: 560,
+    minWidth: 640,
+    minHeight: 480,
+    show: false,
+    title: '插件',
+    backgroundColor: '#0b0d12',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webviewTag: false
+    }
+  })
+
+  pluginsWindow.on('ready-to-show', () => pluginsWindow?.show())
+  void loadWindowPage(pluginsWindow, 'plugins.html')
+  pluginsWindow.on('closed', () => {
+    pluginsWindow = null
+  })
+}
+
+/* ── 应用菜单 ── */
+
+/** 应用菜单：设置 / 插件 / Token 活动图入口 + 基础编辑能力（输入框复制粘贴必需） */
 export function setupAppMenu(): void {
   const isMac = process.platform === 'darwin'
   const isDev = Boolean(process.env['ELECTRON_RENDERER_URL'])
@@ -124,18 +289,29 @@ export function setupAppMenu(): void {
         }
       ]
 
-  const viewMenu: MenuItemConstructorOptions = isDev
-    ? {
-        label: '视图',
-        submenu: [
-          { role: 'reload', label: '重新加载' },
-          { role: 'toggleDevTools', label: '开发者工具' }
-        ]
+  const toolsMenu: MenuItemConstructorOptions = {
+    label: '工具',
+    submenu: [{ label: '插件…', click: () => openPluginsWindow() }]
+  }
+
+  const viewItems: MenuItemConstructorOptions[] = [
+    {
+      id: 'toggle-activity-sidebar',
+      label: 'Token 活动图',
+      type: 'checkbox',
+      checked: isActivitySidebarVisible(),
+      click: (menuItem) => {
+        menuItem.checked = toggleActivitySidebar()
       }
-    : {
-        label: '视图',
-        submenu: [{ role: 'toggleDevTools', label: '开发者工具' }]
-      }
+    },
+    { type: 'separator' }
+  ]
+  if (isDev) {
+    viewItems.push({ role: 'reload', label: '重新加载' })
+  }
+  viewItems.push({ role: 'toggleDevTools', label: '开发者工具' })
+
+  const viewMenu: MenuItemConstructorOptions = { label: '视图', submenu: viewItems }
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -149,7 +325,8 @@ export function setupAppMenu(): void {
           { role: 'selectAll', label: '全选' }
         ]
       },
-      viewMenu
+      viewMenu,
+      toolsMenu
     ])
   )
 }

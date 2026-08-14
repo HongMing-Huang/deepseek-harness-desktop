@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Token 活动</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./activity.css" />
+  </head>
+  <body>
+    <main class="side">
+      <header class="side__head">
+        <h1 class="side__title">Token 活动</h1>
+        <p class="side__hint" id="updateHint">等待数据…</p>
+      </header>
+
+      <!-- 当前会话数字卡：总 token + 四分类 + 上下文压力 -->
+      <section class="card">
+        <div class="card__total">
+          <span class="card__total-label">累计 Token</span>
+          <span class="card__total-value" id="totalTokens">0</span>
+        </div>
+        <dl class="card__grid">
+          <div class="card__cell">
+            <dt>未缓存输入</dt>
+            <dd id="tokensUncached">0</dd>
+          </div>
+          <div class="card__cell">
+            <dt>输出</dt>
+            <dd id="tokensOutput">0</dd>
+          </div>
+          <div class="card__cell">
+            <dt>缓存读</dt>
+            <dd id="tokensCacheRead">0</dd>
+          </div>
+          <div class="card__cell">
+            <dt>缓存写</dt>
+            <dd id="tokensCacheWrite">0</dd>
+          </div>
+        </dl>
+        <div class="pressure">
+          <div class="pressure__meta">
+            <span class="pressure__label">上下文压力</span>
+            <span class="pressure__value" id="pressureValue">—</span>
+          </div>
+          <div class="pressure__track">
+            <div class="pressure__fill" id="pressureFill"></div>
+          </div>
+          <p class="pressure__detail" id="pressureDetail">暂无上下文数据</p>
+        </div>
+      </section>
+
+      <!-- 趋势图：近 1 小时 / 今日 / 近 7 天 -->
+      <section class="chart">
+        <div class="chart__head">
+          <h2 class="chart__title">用量趋势</h2>
+          <div class="chart__tabs" role="tablist">
+            <button class="tab is-active" type="button" data-range="1h" role="tab">1 小时</button>
+            <button class="tab" type="button" data-range="today" role="tab">今日</button>
+            <button class="tab" type="button" data-range="7d" role="tab">7 天</button>
+          </div>
+        </div>
+        <div class="chart__canvas-wrap">
+          <canvas id="chartCanvas"></canvas>
+          <div class="chart__placeholder" id="chartPlaceholder">暂无数据</div>
+        </div>
+        <p class="chart__peak" id="chartPeak"></p>
+      </section>
+
+      <footer class="side__foot">分钟采样 · 来自本机会话投影缓存</footer>
+    </main>
+
+    <script type="module" src="./activity.js"></script>
+  </body>
+</html>

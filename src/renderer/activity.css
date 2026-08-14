@@ -1,0 +1,305 @@
+/* ── DSH Desktop Token 活动侧栏（260px） ──────────────────────────
+   深色 · 窄栏 · 数字卡 + Canvas 趋势。延续应用设计变量与品牌蓝强调色。 */
+
+:root {
+  --bg: #0b0d12;
+  --bg-raised: #10131a;
+  --ink: #e8eaf0;
+  --ink-dim: #8b91a3;
+  --ink-faint: #4c5264;
+  --accent: #4d6bfe;
+  --accent-soft: rgba(77, 107, 254, 0.35);
+  --ok: #3ddc97;
+  --warn: #d9a441;
+  --error: #f0564f;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+    'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.side {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 14px 12px;
+  border-left: 1px solid rgba(232, 234, 240, 0.06);
+  background:
+    radial-gradient(ellipse 120% 30% at 50% -10%, rgba(77, 107, 254, 0.09), transparent 70%),
+    var(--bg);
+}
+
+/* ── 头部 ── */
+.side__head {
+  flex-shrink: 0;
+}
+
+.side__title {
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.side__hint {
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+
+/* ── 数字卡 ── */
+.card {
+  flex-shrink: 0;
+  padding: 14px 14px 12px;
+  background: var(--bg-raised);
+  border: 1px solid rgba(232, 234, 240, 0.07);
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.card__total {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.card__total-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+
+.card__total-value {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(120deg, #e8eaf0 55%, #aab6ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.card__grid {
+  margin-top: 11px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.card__cell {
+  padding: 7px 9px;
+  background: rgba(11, 13, 18, 0.55);
+  border: 1px solid rgba(232, 234, 240, 0.05);
+  border-radius: 8px;
+}
+
+.card__cell dt {
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.card__cell dd {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 560;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 上下文压力 ── */
+.pressure {
+  margin-top: 12px;
+}
+
+.pressure__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pressure__label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+
+.pressure__value {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 620;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.pressure__value.is-warn {
+  color: var(--warn);
+}
+
+.pressure__value.is-high {
+  color: var(--error);
+}
+
+.pressure__track {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(232, 234, 240, 0.08);
+  overflow: hidden;
+}
+
+.pressure__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-soft), var(--accent));
+  box-shadow: 0 0 8px var(--accent-soft);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pressure__fill.is-warn {
+  background: linear-gradient(90deg, rgba(217, 164, 65, 0.5), var(--warn));
+  box-shadow: 0 0 8px rgba(217, 164, 65, 0.4);
+}
+
+.pressure__fill.is-high {
+  background: linear-gradient(90deg, rgba(240, 86, 79, 0.5), var(--error));
+  box-shadow: 0 0 8px rgba(240, 86, 79, 0.4);
+}
+
+.pressure__detail {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* ── 趋势图 ── */
+.chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.chart__title {
+  font-size: 11.5px;
+  font-weight: 620;
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+
+.chart__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(11, 13, 18, 0.6);
+  border: 1px solid rgba(232, 234, 240, 0.07);
+  border-radius: 8px;
+}
+
+.tab {
+  appearance: none;
+  padding: 4px 8px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 540;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab.is-active {
+  color: var(--ink);
+  background: rgba(77, 107, 254, 0.22);
+  box-shadow: 0 0 0 1px rgba(77, 107, 254, 0.4) inset;
+}
+
+.chart__canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin-top: 10px;
+}
+
+#chartCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chart__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+.chart__placeholder[hidden] {
+  display: none;
+}
+
+.chart__peak {
+  flex-shrink: 0;
+  margin-top: 8px;
+  min-height: 13px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+
+/* ── 页脚 ── */
+.side__foot {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  text-align: center;
+}
