@@ -80,6 +80,33 @@ resources/runtime/
 | IM Channels（微信/飞书/Discord） | 未规划 | 同上，依赖独立通道适配 |
 | macOS 签名/公证 | 暂缓 | 按需排期（当前未签名构建，首启需放行） |
 
+### 更新边界（哪些自动更新 / 哪些不更新）
+
+| 内容 | 更新方式 | 频率 |
+| --- | --- | --- |
+| dsh 运行时（`src/shared/versions.ts`） | `sync-upstream` 机器人检测 npm 新版本 → 开 PR → **人工验证合并** | 每 6 小时检查 |
+| 应用壳版本（`package.json` version） | 「版本 PR」人工 bump，Release 认 `v*` tag | 按需 |
+| 应用内 dsh 热更（侧载） | `updater.ts` 应用内检查与安装，失败自动回退 | 24h 节流 / 手动 |
+| 插件目录 pin（`plugin-catalog.json`） | 人工验证 npm/GitHub 后提交 | 按需 |
+| dshfind 市场数据 | 应用内拉取缓存，TTL 24h 自动刷新 | 每次搜索检查 |
+| 官网 `site/` | 随 main 提交，`pages.yml` 自动部署 | 随提交 |
+| 官方 dsh web | **永不修改、永不注入** | — |
+| 用户数据 `~/.dsh` | **应用从不改写**（会话中心只读，插件操作走官方 `dsh plugin`） | — |
+
+### 官方生态链接
+
+- 官方插件管理文档：[deepseek-harness apps/cli/reference#plugin-management](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md#plugin-management)
+- 官方架构说明：[deepseek-harness docs/architecture.md](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md)
+- Cordis 插件内核：[cordiverse/cordis](https://github.com/cordiverse/cordis)
+- 社区插件市场：[dshfind.com/zh/plugins](https://dshfind.com/zh/plugins)（已接入应用内市场 Tab）
+- 社区插件雷达：[AdamPlatin123/awesome-dsh-plugins](https://github.com/AdamPlatin123/awesome-dsh-plugins)
+
+### 项目文档
+
+- [架构说明](ARCHITECTURE.md)：分层、数据流、安全边界与关键决策记录
+- [安全策略](SECURITY.md)：威胁模型、报告渠道与构建安全
+- [参与贡献](CONTRIBUTING.md)：开发环境、代码规范、提交规范与 PR 流程
+
 ### dsh 来源说明（内嵌运行时的官方来源）
 
 - 内嵌 dsh 运行时由 `npm run prepare:runtime` 执行 `scripts/prepare-runtime.ts`，从 npm 官方源（registry.npmjs.org）安装官方发布包 `@deepseek-ai/dsh@<DSH_VERSION>`（钉死版本，见 `src/shared/versions.ts`）——即上游官方 GitHub 仓库 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的分发物，绝不使用本地拷贝或私有源。

@@ -8,6 +8,7 @@
     viewTitle: document.getElementById('viewTitle'),
     viewSub: document.getElementById('viewSub'),
     backBtn: document.getElementById('backBtn'),
+    refreshBtn: document.getElementById('refreshBtn'),
     searchInput: document.getElementById('searchInput'),
     sourceBadge: document.getElementById('sourceBadge'),
     homeView: document.getElementById('homeView'),
@@ -390,6 +391,32 @@
       els.searchInput.value = ''
       setView('home', '工作区', '项目卡片式会话概览（数据来自官方 dsh 存储，只读）')
       loadWorkspaces()
+    })
+    // 刷新当前视图（首页/工作区/搜索结果按视图重载）
+    function refreshCurrent() {
+      if (view === 'home') {
+        loadWorkspaces()
+      } else if (view === 'workspace' && currentWorkspace) {
+        drillWorkspace(currentWorkspace)
+      } else if (view === 'search') {
+        var q = (els.searchInput.value || '').trim()
+        if (q) {
+          void runSearch(q)
+        } else if (currentWorkspace) {
+          drillWorkspace(currentWorkspace)
+        } else {
+          loadWorkspaces()
+        }
+      }
+    }
+    els.refreshBtn.addEventListener('click', refreshCurrent)
+    // 窗口回到前台时自动刷新（节流 2s，防高频触发）
+    var lastFocusRefresh = 0
+    window.addEventListener('focus', function () {
+      var now = Date.now()
+      if (now - lastFocusRefresh < 2000) return
+      lastFocusRefresh = now
+      refreshCurrent()
     })
     els.searchInput.addEventListener('input', scheduleSearch)
     els.searchInput.addEventListener('keydown', function (event) {

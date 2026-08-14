@@ -238,8 +238,34 @@
       btn.addEventListener('click', function () {
         void doInstall(plugin)
       })
-      item.appendChild(btn)
+
+      var btns = el('div', 'item__btns')
+      if (plugin.repo && /^https:\/\//.test(plugin.repo)) {
+        var repoBtn = el('button', 'btn btn--mini', '仓库')
+        repoBtn.type = 'button'
+        repoBtn.title = '在浏览器打开：' + plugin.repo
+        repoBtn.addEventListener('click', function () {
+          openExternal(plugin.repo)
+        })
+        btns.appendChild(repoBtn)
+      }
+      btns.appendChild(btn)
+      item.appendChild(btns)
       els.catalogList.appendChild(item)
+    })
+  }
+
+  /* ── 官方生态外链（主进程外链守卫转系统浏览器） ── */
+
+  function openExternal(url) {
+    window.open(url, '_blank')
+  }
+
+  function bindEcosystemLinks() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ext]'), function (btn) {
+      btn.addEventListener('click', function () {
+        openExternal(btn.dataset.ext)
+      })
     })
   }
 
@@ -302,7 +328,19 @@
       btn.addEventListener('click', function () {
         void doMarketInstall(plugin)
       })
-      item.appendChild(btn)
+
+      var btns = el('div', 'item__btns')
+      if (plugin.repoUrl && /^https:\/\//.test(plugin.repoUrl)) {
+        var repoBtn = el('button', 'btn btn--mini', '仓库')
+        repoBtn.type = 'button'
+        repoBtn.title = '在浏览器打开：' + plugin.repoUrl
+        repoBtn.addEventListener('click', function () {
+          openExternal(plugin.repoUrl)
+        })
+        btns.appendChild(repoBtn)
+      }
+      btns.appendChild(btn)
+      item.appendChild(btns)
       els.marketList.appendChild(item)
     })
   }
@@ -343,10 +381,15 @@
       })
       .catch(function () {
         renderMarketMeta(null)
-        els.marketList.replaceChildren(
-          el('div', 'zone__empty', '市场数据不可用（网络失败或页面结构变化），可在浏览器打开 dshfind.com/zh/plugins'),
-          el('div', 'zone__empty', '')
-        )
+        var box = el('div', 'zone__empty', '市场数据不可用（网络失败或页面结构变化）')
+        var linkBtn = el('button', 'btn btn--mini', '在浏览器打开 dshfind 市场')
+        linkBtn.type = 'button'
+        linkBtn.style.marginTop = '10px'
+        linkBtn.addEventListener('click', function () {
+          openExternal('https://dshfind.com/zh/plugins')
+        })
+        box.appendChild(linkBtn)
+        els.marketList.replaceChildren(box)
       })
       .finally(function () {
         els.marketRefreshBtn.disabled = false
@@ -546,6 +589,7 @@
   /* ── 启动 ── */
 
   if (api) {
+    bindEcosystemLinks()
     els.catalogSearch.addEventListener('input', renderCatalog)
     els.marketSearch.addEventListener('input', scheduleMarketSearch)
     els.tabCatalog.addEventListener('click', function () {

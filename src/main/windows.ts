@@ -73,6 +73,34 @@ function isLocalDshWebUrl(url: string): boolean {
   }
 }
 
+/**
+ * 自有窗口（设置/插件/会话中心）外链策略：
+ * - window.open / target=_blank：https 链接一律交给系统浏览器（openExternal）并 deny；
+ * - 页面导航：仅允许初始页面自身（file:/dev server），其余 will-navigate 阻止，
+ *   防止插件/会话窗口被任何内容劫持跳转。
+ */
+function applyOwnWindowLinkPolicy(win: BrowserWindow): void {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      void shell.openExternal(url)
+    }
+    return { action: 'deny' }
+  })
+  const devServer = process.env['ELECTRON_RENDERER_URL']
+  const ownPrefixes: string[] = []
+  if (devServer) ownPrefixes.push(devServer)
+  ownPrefixes.push('file:')
+  win.webContents.on('will-navigate', (event, url) => {
+    const allowed = ownPrefixes.some((prefix) => url.startsWith(prefix))
+    if (!allowed) {
+      event.preventDefault()
+      if (url.startsWith('https://') || url.startsWith('http://')) {
+        void shell.openExternal(url)
+      }
+    }
+  })
+}
+
 /** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换 dsh web 视图） */
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -196,6 +224,7 @@ export function openSettingsWindow(): void {
     }
   })
 
+  applyOwnWindowLinkPolicy(settingsWindow)
   settingsWindow.on('ready-to-show', () => settingsWindow?.show())
   void loadWindowPage(settingsWindow, 'settings.html')
   settingsWindow.on('closed', () => {
@@ -229,6 +258,7 @@ export function openPluginsWindow(): void {
     }
   })
 
+  applyOwnWindowLinkPolicy(pluginsWindow)
   pluginsWindow.on('ready-to-show', () => pluginsWindow?.show())
   void loadWindowPage(pluginsWindow, 'plugins.html')
   pluginsWindow.on('closed', () => {
@@ -262,6 +292,7 @@ export function openSessionsWindow(): void {
     }
   })
 
+  applyOwnWindowLinkPolicy(sessionsWindow)
   sessionsWindow.on('ready-to-show', () => sessionsWindow?.show())
   void loadWindowPage(sessionsWindow, 'sessions.html')
   sessionsWindow.on('closed', () => {
@@ -304,7 +335,11 @@ export function setupAppMenu(): void {
   const toolsMenu: MenuItemConstructorOptions = {
     label: '工具',
     submenu: [
-      { label: '会话中心…', click: () => openSessionsWindow() },
+      {
+        label: '会话中心…',
+        accelerator: 'CmdOrCtrl+Shift+S',
+        click: () => openSessionsWindow()
+      },
       { label: '插件…', click: () => openPluginsWindow() }
     ]
   }
