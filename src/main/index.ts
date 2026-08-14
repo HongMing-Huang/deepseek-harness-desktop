@@ -1,13 +1,34 @@
 import { app, BrowserWindow, shell } from 'electron'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { ProcessSupervisor } from './runtime/process-supervisor'
-import { registerIpcHandlers, broadcastStatus } from './ipc'
+import { registerIpcHandlers, broadcastStatus, broadcastOpProgress, type IpcContext } from './ipc'
+import { classifyStartupError } from './runtime/error-classifier'
+import { repairPort } from './runtime/port-doctor'
+import { bundledDshVersion, resolveRuntime } from './runtime/paths'
+import * as config from './config'
+import { createMainWindow, setupAppMenu } from './windows'
 import { logger } from './logger'
-import type { RuntimeStatus } from '../shared/ipc'
+import type {
+  ConfigState,
+  DiagnosticsResult,
+  Preferences,
+  RepairPortResult,
+  RuntimeStatus,
+  UpdaterCheckResult
+} from '../shared/ipc'
 
 let mainWindow: BrowserWindow | null = null
 const supervisor = new ProcessSupervisor()
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
+
+/** boot 各阶段映射的进度百分比（与 supervisor progress 事件对应） */
+const STAGE_PERCENT: Record<string, number> = {
+  'resolve-runtime': 18,
+  'allocate-port': 36,
+  spawn: 60,
+  'wait-ready': 82
+}
 
 /** 单实例锁：重复启动时聚焦已有窗口 */
 if (!app.requestSingleInstanceLock()) {
@@ -22,58 +43,6 @@ app.on('second-instance', () => {
   }
 })
 
-function createMainWindow(): void {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
-    minWidth: 900,
-    minHeight: 600,
-    show: false,
-    title: 'DSH Desktop',
-    backgroundColor: '#0d0f14',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webviewTag: false
-    }
-  })
-
-  mainWindow.on('ready-to-show', () => mainWindow?.show())
-
-  // 应用内导航拦截：仅允许本机 dsh web；外链交给系统浏览器
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
-      return { action: 'allow' }
-    }
-    void shell.openExternal(url)
-    return { action: 'deny' }
-  })
-
-  void loadSplash()
-}
-
-function splashUrl(): string {
-  // electron-vite dev 环境注入渲染进程 dev server 地址
-  const devServer = process.env['ELECTRON_RENDERER_URL']
-  if (devServer) {
-    return `${devServer}/splash.html`
-  }
-  return join(__dirname, '../renderer/splash.html')
-}
-
-async function loadSplash(): Promise<void> {
-  if (!mainWindow) return
-  const url = splashUrl()
-  if (url.startsWith('http')) {
-    await mainWindow.loadURL(url)
-  } else {
-    await mainWindow.loadFile(url)
-  }
-}
-
 function setStatus(status: RuntimeStatus): void {
   latestStatus = status
   broadcastStatus(status)
@@ -87,19 +56,33 @@ function attachSupervisorListeners(): void {
   supervisor.on('ready', ({ port, url }) => {
     logger.info(`dsh web 就绪：${url}`)
     setStatus({ phase: 'ready', port, url, message: 'dsh web 已就绪' })
+    broadcastOpProgress({ op: 'boot', state: 'done', percent: 100, message: 'dsh web 已就绪' })
     if (mainWindow && !mainWindow.isDestroyed()) {
       void mainWindow.loadURL(url)
     }
   })
 
+  supervisor.on('progress', ({ stage, message }) => {
+    // 阶段百分比由 index 统一映射，避免 renderer 重复维护
+    broadcastOpProgress({
+      op: 'boot',
+      state: 'update',
+      percent: STAGE_PERCENT[stage],
+      message
+    })
+  })
+
   supervisor.on('error', ({ message, stderrTail }) => {
     logger.error(`dsh web 启动失败：${message}`)
+    const classification = classifyStartupError({ message, stderrTail })
     setStatus({
       phase: 'error',
       message,
       stderrTail,
-      port: supervisor.port ?? undefined
+      port: supervisor.port ?? undefined,
+      classification
     })
+    broadcastOpProgress({ op: 'boot', state: 'error', message })
   })
 
   supervisor.on('exit', ({ code, signal }) => {
@@ -129,6 +112,7 @@ async function bootstrapRuntime(): Promise<void> {
   }
 
   setStatus({ phase: 'starting', message: '正在启动 DeepSeek Harness…' })
+  broadcastOpProgress({ op: 'boot', state: 'start', message: '正在启动运行时' })
 
   try {
     const { port } = await supervisor.start()
@@ -140,19 +124,139 @@ async function bootstrapRuntime(): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     logger.error(`运行时启动异常：${message}`)
-    setStatus({ phase: 'error', message })
+    const classification = classifyStartupError({ message })
+    setStatus({ phase: 'error', message, classification })
+    broadcastOpProgress({ op: 'boot', state: 'error', message })
   }
 }
 
+/* ── IPC 上下文（构造注入：闭包引用 supervisor / config） ── */
+
+async function getConfigState(): Promise<ConfigState> {
+  const [apiKey, defaultModel, preferences] = await Promise.all([
+    config.getApiKeyStatus(),
+    config.getDefaultModel(),
+    config.getPreferences()
+  ])
+  const bundled = bundledDshVersion()
+  let dsh: string | null = bundled
+  let sideloaded = false
+  try {
+    const resolution = resolveRuntime()
+    dsh = resolution.dshVersion ?? bundled
+    sideloaded = resolution.usingSideloadDsh
+  } catch {
+    // 运行时解析失败时回退展示内嵌版本信息
+  }
+  return { apiKey, defaultModel, preferences, versions: { app: app.getVersion(), bundled, dsh, sideloaded } }
+}
+
+async function getDiagnostics(): Promise<DiagnosticsResult> {
+  const { stdoutTail, stderrTail } = supervisor.getDiagnostics()
+  const lastError = latestStatus.phase === 'error' ? latestStatus : null
+  const classification = classifyStartupError({
+    message: lastError?.message ?? '',
+    stderrTail: lastError?.stderrTail ?? stderrTail
+  })
+  let runtime: DiagnosticsResult['runtime'] = null
+  try {
+    const resolution = resolveRuntime()
+    runtime = { dshVersion: resolution.dshVersion, usingSideload: resolution.usingSideloadDsh }
+  } catch {
+    runtime = null
+  }
+  return { stdoutTail, stderrTail, classification, runtime }
+}
+
+async function restartRuntime(): Promise<RuntimeStatus> {
+  logger.info('手动重启 dsh web')
+  await supervisor.stop()
+  await bootstrapRuntime()
+  return latestStatus
+}
+
+async function handleRepairPort(port?: number): Promise<RepairPortResult> {
+  const target = port ?? supervisor.port ?? latestStatus.port ?? 3080
+  const result = await repairPort(target)
+  if (result.ok) {
+    logger.info(`端口修复成功：${result.message}`)
+    // 修复成功后自动重启运行时（回到进度态）
+    await supervisor.stop()
+    void bootstrapRuntime()
+  } else {
+    logger.warn(`端口修复未完成：${result.message}`)
+  }
+  return result
+}
+
+function openLogsFolder(): { ok: boolean } {
+  try {
+    const logsDir = join(app.getPath('userData'), 'logs')
+    mkdirSync(logsDir, { recursive: true })
+    shell.showItemInFolder(join(logsDir, 'main.log'))
+    return { ok: true }
+  } catch (err) {
+    logger.warn(`打开日志目录失败：${err instanceof Error ? err.message : String(err)}`)
+    return { ok: false }
+  }
+}
+
+function buildIpcContext(): IpcContext {
+  return {
+    getRuntimeStatus: () => latestStatus,
+    restartRuntime,
+    repairPort: (port?: number) => handleRepairPort(port),
+    getDiagnostics,
+    openLogs: openLogsFolder,
+    getConfig: () => getConfigState(),
+
+    saveApiKey: async (key: string) => {
+      // OpProgress 反馈保存过程；日志与返回值均不含密钥明文
+      broadcastOpProgress({ op: 'credentials', state: 'start', message: '正在保存 API Key…' })
+      const result = await config.saveApiKey(key)
+      broadcastOpProgress({
+        op: 'credentials',
+        state: result.ok ? 'done' : 'error',
+        message: result.ok ? 'API Key 已保存' : result.message ?? '保存失败'
+      })
+      return result
+    },
+
+    saveDefaultModel: async (model: string) => {
+      broadcastOpProgress({ op: 'model', state: 'start', message: '正在保存默认模型…' })
+      const result = await config.saveDefaultModel(model)
+      broadcastOpProgress({
+        op: 'model',
+        state: result.ok ? 'done' : 'error',
+        message: result.ok ? '默认模型已保存' : result.message ?? '保存失败'
+      })
+      return result
+    },
+
+    savePreferences: (patch: Partial<Preferences>) => config.savePreferencesMerge(patch),
+
+    // 更新通道：由 P3 的 RuntimeUpdater 提供；当前返回不可用状态避免死通道
+    checkUpdater: async (): Promise<UpdaterCheckResult> => ({
+      state: 'unavailable',
+      currentDsh: bundledDshVersion(),
+      message: '更新服务尚未初始化'
+    }),
+    applyUpdater: async () => ({ ok: false, message: '更新服务尚未初始化' })
+  }
+}
+
+/* ── 应用生命周期 ── */
+
 app.whenReady().then(() => {
   logger.info('应用启动，开始引导运行时')
-  registerIpcHandlers({ getRuntimeStatus: () => latestStatus })
-  createMainWindow()
+  registerIpcHandlers(buildIpcContext())
+  setupAppMenu()
+  mainWindow = createMainWindow()
   void bootstrapRuntime()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
+      mainWindow = createMainWindow()
       void bootstrapRuntime()
     }
   })

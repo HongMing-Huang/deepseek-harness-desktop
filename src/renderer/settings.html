@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>设置</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <main class="pane">
+      <header class="pane__head">
+        <h1 class="pane__title">设置</h1>
+        <p class="pane__sub">DSH Desktop 偏好与运行时信息</p>
+      </header>
+
+      <section class="card">
+        <h2 class="card__title">API 密钥</h2>
+        <p class="card__desc" id="apiKeyState">检查中…</p>
+        <div class="field">
+          <input
+            class="input"
+            id="apiKeyInput"
+            type="password"
+            placeholder="sk-…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="btn" id="apiKeySave" type="button">更换密钥</button>
+        </div>
+        <p class="feedback" id="apiKeyFeedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">默认模型</h2>
+        <p class="card__desc">写入 dsh 的 settings.yaml（agent-default-model 段）</p>
+        <div class="field">
+          <input
+            class="input"
+            id="modelInput"
+            type="text"
+            placeholder="deepseek-chat"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="btn" id="modelSave" type="button">保存</button>
+        </div>
+        <p class="feedback" id="modelFeedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">更新</h2>
+        <label class="switch-row" for="updateCheckToggle">
+          <input type="checkbox" id="updateCheckToggle" />
+          <span class="switch-row__label">自动检查 dsh 更新（每 24 小时）</span>
+        </label>
+        <dl class="versions">
+          <div class="versions__row">
+            <dt>应用壳</dt>
+            <dd><code id="appVersion">-</code></dd>
+          </div>
+          <div class="versions__row">
+            <dt>dsh 运行时</dt>
+            <dd><code id="dshVersion">-</code></dd>
+          </div>
+        </dl>
+        <div class="field">
+          <button class="btn btn--ghost" id="checkNowBtn" type="button">立即检查更新</button>
+        </div>
+        <p class="feedback" id="updateFeedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <footer class="pane__foot">
+        <span>偏好保存于本机，密钥仅写入 dsh 凭据文件</span>
+      </footer>
+    </main>
+
+    <script type="module" src="./settings.js"></script>
+  </body>
+</html>

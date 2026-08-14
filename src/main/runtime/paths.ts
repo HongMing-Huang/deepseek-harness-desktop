@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir, arch as osArch, platform } from 'node:os'
 import { delimiter, join } from 'node:path'
 
@@ -62,6 +62,17 @@ export function dshHome(): string {
   return process.env.DSH_HOME || join(homedir(), '.dsh')
 }
 
+/** 内嵌 dsh 版本（读取打包清单 version.json；不存在/损坏返回 null） */
+export function bundledDshVersion(): string | null {
+  try {
+    const raw = readFileSync(join(runtimeRoot(), 'dsh', 'version.json'), 'utf-8')
+    const parsed = JSON.parse(raw) as { dsh?: string }
+    return typeof parsed.dsh === 'string' && parsed.dsh.length > 0 ? parsed.dsh : null
+  } catch {
+    return null
+  }
+}
+
 export interface RuntimeResolution {
   /** 实际用于 spawn 的 node 可执行文件 */
   node: string
@@ -70,6 +81,10 @@ export interface RuntimeResolution {
   dshBin: string
   pnpm: string | null
   dshHome: string
+  /** 当前生效的 dsh 版本（内嵌清单或侧载指针，解析不到为 null） */
+  dshVersion: string | null
+  /** 是否使用侧载（应用内更新）运行时 */
+  usingSideloadDsh: boolean
 }
 
 /**
@@ -132,7 +147,15 @@ export function resolveRuntime(): RuntimeResolution {
   const pnpmCandidate = bundledPnpmPath()
   const pnpm = existsSync(pnpmCandidate) ? pnpmCandidate : null
 
-  return { node, usingBundledNode, dshBin, pnpm, dshHome: dshHome() }
+  return {
+    node,
+    usingBundledNode,
+    dshBin,
+    pnpm,
+    dshHome: dshHome(),
+    dshVersion: bundledDshVersion(),
+    usingSideloadDsh: false
+  }
 }
 
 /**

@@ -1,25 +1,69 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IpcChannels, type DshDesktopApi, type RuntimeStatus } from '../shared/ipc'
+import {
+  IpcChannels,
+  type DshDesktopApi,
+  type OpProgress,
+  type Preferences,
+  type RuntimeStatus,
+  type TokenSeriesPoint,
+  type UpdaterStatusPayload
+} from '../shared/ipc'
 
 // preload 运行于渲染进程：tsconfig.node 无 DOM lib，此处补充 location 最小类型
 declare const location: { readonly protocol: string; readonly href: string }
+
+/** 事件订阅的统一封装：返回取消订阅函数 */
+function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
+  const wrapped = (_event: Electron.IpcRendererEvent, payload: T): void => {
+    listener(payload)
+  }
+  ipcRenderer.on(channel, wrapped)
+  return () => {
+    ipcRenderer.removeListener(channel, wrapped)
+  }
+}
 
 /**
  * contextBridge 白名单：renderer 只能访问这里显式暴露的能力，
  * 绝不透传 ipcRenderer 本身或 Node 能力。
  */
 const api: DshDesktopApi = {
-  getStatus: () => ipcRenderer.invoke(IpcChannels.RuntimeGetStatus) as Promise<RuntimeStatus>,
+  /* 运行时 */
+  getStatus: () => ipcRenderer.invoke(IpcChannels.RuntimeGetStatus),
+  restartRuntime: () => ipcRenderer.invoke(IpcChannels.RuntimeRestart),
+  repairPort: (port?: number) => ipcRenderer.invoke(IpcChannels.RuntimeRepairPort, port),
+  getDiagnostics: () => ipcRenderer.invoke(IpcChannels.RuntimeGetDiagnostics),
+  openLogs: () => ipcRenderer.invoke(IpcChannels.RuntimeOpenLogs),
 
-  onStatus: (listener: (status: RuntimeStatus) => void) => {
-    const wrapped = (_event: Electron.IpcRendererEvent, status: RuntimeStatus): void => {
-      listener(status)
-    }
-    ipcRenderer.on(IpcChannels.RuntimeStatus, wrapped)
-    return () => {
-      ipcRenderer.removeListener(IpcChannels.RuntimeStatus, wrapped)
-    }
-  }
+  /* 更新 */
+  checkUpdater: () => ipcRenderer.invoke(IpcChannels.UpdaterCheckNow),
+  applyUpdater: (version?: string) => ipcRenderer.invoke(IpcChannels.UpdaterApply, version),
+
+  /* 插件：handler 由插件管理阶段实现，renderer 暂不调用 */
+  listPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsList),
+  getPluginCatalog: () => ipcRenderer.invoke(IpcChannels.PluginsCatalog),
+  installPlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsInstall, name),
+  removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
+
+  /* 配置 */
+  getConfig: () => ipcRenderer.invoke(IpcChannels.ConfigGet),
+  saveApiKey: (key: string) => ipcRenderer.invoke(IpcChannels.ConfigSaveApiKey, key),
+  saveModel: (model: string) => ipcRenderer.invoke(IpcChannels.ConfigSaveModel, model),
+  savePreferences: (patch: Partial<Preferences>) =>
+    ipcRenderer.invoke(IpcChannels.ConfigSavePreferences, patch),
+
+  /* Token：handler 由 Token 阶段实现，renderer 暂不调用 */
+  getTokenSeries: (range?: string) => ipcRenderer.invoke(IpcChannels.TokenGetSeries, range),
+
+  /* 事件订阅 */
+  onStatus: (listener: (status: RuntimeStatus) => void) =>
+    subscribe<RuntimeStatus>(IpcChannels.RuntimeStatus, listener),
+  onOpProgress: (listener: (progress: OpProgress) => void) =>
+    subscribe<OpProgress>(IpcChannels.OpProgress, listener),
+  onUpdaterStatus: (listener: (status: UpdaterStatusPayload) => void) =>
+    subscribe<UpdaterStatusPayload>(IpcChannels.UpdaterStatus, listener),
+  onTokenSample: (listener: (sample: TokenSeriesPoint) => void) =>
+    subscribe<TokenSeriesPoint>(IpcChannels.TokenSample, listener)
 }
 
 /**

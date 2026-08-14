@@ -42,10 +42,14 @@ class LineTail {
   }
 }
 
+/** 启动流程的阶段节点（供上层转换为 OpProgress 广播） */
+export type BootStage = 'resolve-runtime' | 'allocate-port' | 'spawn' | 'wait-ready'
+
 export interface SupervisorEvents {
   ready: (info: { port: number; url: string }) => void
   error: (info: { message: string; stderrTail: string; exitCode: number | null }) => void
   exit: (info: { code: number | null; signal: NodeJS.Signals | null }) => void
+  progress: (info: { stage: BootStage; message: string }) => void
 }
 
 export declare interface ProcessSupervisor {
@@ -113,11 +117,15 @@ export class ProcessSupervisor extends EventEmitter {
     this.stdoutTail = new LineTail(TAIL_LINES)
     this.stderrTail = new LineTail(TAIL_LINES)
 
+    this.emit('progress', { stage: 'resolve-runtime', message: '正在解析 dsh 运行时…' })
     this.resolution = resolveRuntime()
+
+    this.emit('progress', { stage: 'allocate-port', message: '正在分配空闲端口…' })
     const port = await this.findFreePort()
     this.currentPort = port
 
     const { node, dshBin } = this.resolution
+    this.emit('progress', { stage: 'spawn', message: `正在拉起 dsh web（端口 ${port}）…` })
     const child = spawn(node, [dshBin, 'web', '--port', String(port)], {
       env: buildChildEnv(this.resolution),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -158,6 +166,7 @@ export class ProcessSupervisor extends EventEmitter {
 
     this.currentPhase = 'starting'
     await this.writePidFile(child.pid)
+    this.emit('progress', { stage: 'wait-ready', message: '正在等待 dsh web 就绪…' })
     this.pollUntilReady(port)
 
     return { port }

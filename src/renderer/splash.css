@@ -222,6 +222,26 @@ body {
   opacity: 0.7;
 }
 
+/* 确定性进度：由 OpProgress 百分比驱动 */
+.progress__beam.is-determinate {
+  animation: none;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent-soft), var(--accent));
+  box-shadow: 0 0 12px var(--accent-soft);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.progress__meta {
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  text-align: center;
+  min-height: 14px;
+  overflow-wrap: anywhere;
+}
+
 @keyframes sweep {
   from {
     transform: translateX(-110%);
@@ -279,6 +299,219 @@ body {
   }
 }
 
+/* ── 通用按钮 ── */
+.btn {
+  appearance: none;
+  padding: 9px 18px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  background: linear-gradient(160deg, rgba(77, 107, 254, 0.2), rgba(77, 107, 254, 0.08));
+  border: 1px solid rgba(77, 107, 254, 0.55);
+  border-radius: 9px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.08s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: linear-gradient(160deg, rgba(77, 107, 254, 0.34), rgba(77, 107, 254, 0.16));
+  border-color: var(--accent);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: rgba(232, 234, 240, 0.18);
+  color: var(--ink-dim);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: rgba(232, 234, 240, 0.06);
+  border-color: rgba(232, 234, 240, 0.32);
+  color: var(--ink);
+}
+
+/* ── 首启引导卡 ── */
+.onboard {
+  width: min(480px, 82vw);
+  padding: 26px 28px;
+  background: rgba(16, 19, 26, 0.92);
+  border: 1px solid rgba(77, 107, 254, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.onboard__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.onboard__logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #171b26, #0e1118);
+  border: 1px solid rgba(232, 234, 240, 0.08);
+  box-shadow: 0 0 0 1px rgba(232, 234, 240, 0.04);
+}
+
+.onboard__word {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.onboard__title {
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.onboard__sub {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+
+.onboard__desc {
+  margin-top: 16px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+}
+
+.onboard__input {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: rgba(11, 13, 18, 0.85);
+  border: 1px solid rgba(232, 234, 240, 0.14);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.onboard__input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(77, 107, 254, 0.22);
+}
+
+.onboard__tip {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.onboard__feedback {
+  min-height: 18px;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.onboard__feedback.is-error {
+  color: #f2b8b5;
+}
+
+.onboard__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* ── 错误卡片 ── */
+.errorcard {
+  width: min(520px, 82vw);
+  padding: 22px 26px;
+  background: rgba(16, 19, 26, 0.92);
+  border: 1px solid rgba(240, 86, 79, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
+  animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.errorcard__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.errorcard__icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--error);
+  box-shadow: 0 0 12px rgba(240, 86, 79, 0.5);
+  flex-shrink: 0;
+}
+
+.errorcard__title {
+  font-size: 15.5px;
+  font-weight: 620;
+  color: #f2b8b5;
+}
+
+.errorcard__cause {
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--ink-dim);
+  overflow-wrap: anywhere;
+  max-height: 72px;
+  overflow: auto;
+}
+
+.errorcard__hint {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.errorcard__note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  background: rgba(11, 13, 18, 0.7);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.errorcard__note.is-error {
+  color: #f2b8b5;
+}
+
+.errorcard__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 /* ── 诊断折叠区 ── */
 .diag {
   width: min(620px, 78vw);
@@ -333,6 +566,11 @@ body {
   .brand__ring,
   .progress__beam,
   .status__dot {
+    animation: none;
+  }
+
+  .onboard,
+  .errorcard {
     animation: none;
   }
 }

@@ -36,12 +36,58 @@
           <div class="progress__track">
             <div class="progress__beam" id="beam"></div>
           </div>
+          <div class="progress__meta" id="progressMeta"></div>
         </div>
 
         <div class="status" role="status" aria-live="polite">
           <span class="status__dot" id="statusDot"></span>
           <span class="status__text" id="statusText">正在初始化…</span>
         </div>
+
+        <!-- 首启引导：未配置 API Key 时显示（不阻塞启动流，dsh web 自带 onboarding 兜底） -->
+        <section class="onboard" id="onboardCard" hidden aria-label="初始设置">
+          <div class="onboard__head">
+            <img class="onboard__logo" src="./assets/whale-dark.png" alt="" aria-hidden="true" />
+            <div class="onboard__word">
+              <h2 class="onboard__title">欢迎使用 DSH Desktop</h2>
+              <p class="onboard__sub">开始之前，填写你的 DeepSeek API Key</p>
+            </div>
+          </div>
+          <p class="onboard__desc">
+            密钥将以 0600 权限写入 dsh 的本机凭据文件，仅用于访问 DeepSeek
+            开放平台接口，不会发送到任何其他服务。
+          </p>
+          <input
+            class="onboard__input"
+            id="apiKeyInput"
+            type="password"
+            placeholder="sk-…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="onboard__tip">可在 DeepSeek 开放平台的「API Keys」页面创建密钥。</p>
+          <p class="onboard__feedback" id="onboardFeedback" role="status" aria-live="polite"></p>
+          <div class="onboard__actions">
+            <button class="btn" id="onboardSave" type="button">保存并继续</button>
+            <button class="btn btn--ghost" id="onboardSkip" type="button">跳过</button>
+          </div>
+        </section>
+
+        <!-- 启动失败：按分类渲染原因与动作 -->
+        <section class="errorcard" id="errorCard" hidden role="alert" aria-label="启动失败">
+          <div class="errorcard__head">
+            <span class="errorcard__icon" aria-hidden="true"></span>
+            <h2 class="errorcard__title" id="errorTitle">启动失败</h2>
+          </div>
+          <p class="errorcard__cause" id="errorCause"></p>
+          <p class="errorcard__hint" id="errorHint"></p>
+          <div class="errorcard__note" id="errorNote" hidden></div>
+          <div class="errorcard__actions">
+            <button class="btn" id="btnRetry" type="button" hidden>重试启动</button>
+            <button class="btn" id="btnRepairPort" type="button" hidden>释放端口</button>
+            <button class="btn btn--ghost" id="btnOpenLogs" type="button" hidden>查看日志</button>
+          </div>
+        </section>
 
         <details class="diag" id="diagBox" hidden>
           <summary>诊断信息</summary>
