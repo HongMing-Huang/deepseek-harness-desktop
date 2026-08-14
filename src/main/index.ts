@@ -2,10 +2,16 @@ import { app, BrowserWindow, shell } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { ProcessSupervisor } from './runtime/process-supervisor'
+import { RuntimeUpdater } from './runtime/updater'
 import { registerIpcHandlers, broadcastStatus, broadcastOpProgress, type IpcContext } from './ipc'
 import { classifyStartupError } from './runtime/error-classifier'
 import { repairPort } from './runtime/port-doctor'
-import { bundledDshVersion, resolveRuntime } from './runtime/paths'
+import {
+  bundledDshVersion,
+  cleanupSideloadRuntimes,
+  readCurrentSideloadVersion,
+  resolveRuntime
+} from './runtime/paths'
 import * as config from './config'
 import { createMainWindow, setupAppMenu } from './windows'
 import { logger } from './logger'
@@ -20,6 +26,7 @@ import type {
 
 let mainWindow: BrowserWindow | null = null
 const supervisor = new ProcessSupervisor()
+let updater: RuntimeUpdater | null = null
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
 
 /** boot 各阶段映射的进度百分比（与 supervisor progress 事件对应） */
@@ -57,6 +64,9 @@ function attachSupervisorListeners(): void {
     logger.info(`dsh web 就绪：${url}`)
     setStatus({ phase: 'ready', port, url, message: 'dsh web 已就绪' })
     broadcastOpProgress({ op: 'boot', state: 'done', percent: 100, message: 'dsh web 已就绪' })
+    if (updater) {
+      void updater.noteBootSuccess()
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       void mainWindow.loadURL(url)
     }
@@ -83,6 +93,10 @@ function attachSupervisorListeners(): void {
       classification
     })
     broadcastOpProgress({ op: 'boot', state: 'error', message })
+    // 侧载运行时连续失败计数 / 自动回退（回退成功时会自动重启，状态广播随之更新）
+    if (updater) {
+      void updater.noteBootFailure()
+    }
   })
 
   supervisor.on('exit', ({ code, signal }) => {
@@ -235,24 +249,40 @@ function buildIpcContext(): IpcContext {
 
     savePreferences: (patch: Partial<Preferences>) => config.savePreferencesMerge(patch),
 
-    // 更新通道：由 P3 的 RuntimeUpdater 提供；当前返回不可用状态避免死通道
-    checkUpdater: async (): Promise<UpdaterCheckResult> => ({
-      state: 'unavailable',
-      currentDsh: bundledDshVersion(),
-      message: '更新服务尚未初始化'
-    }),
-    applyUpdater: async () => ({ ok: false, message: '更新服务尚未初始化' })
+    checkUpdater: () =>
+      updater ? updater.checkNow() : Promise.resolve({
+        state: 'unavailable' as const,
+        currentDsh: bundledDshVersion(),
+        message: '更新服务尚未初始化'
+      }),
+    applyUpdater: (version?: string) =>
+      updater
+        ? updater.applyUpdate(version)
+        : Promise.resolve({ ok: false, message: '更新服务尚未初始化' })
   }
 }
 
 /* ── 应用生命周期 ── */
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logger.info('应用启动，开始引导运行时')
+
+  // 启动清理：侧载目录仅保留 current 指向版本 + lastKnownGoodDsh（回滚目标）
+  const preferences = await config.getPreferences()
+  const currentSideload = readCurrentSideloadVersion()
+  const keep = [currentSideload, preferences.lastKnownGoodDsh].filter(
+    (v): v is string => typeof v === 'string' && v.length > 0
+  )
+  cleanupSideloadRuntimes(keep)
+
+  // 更新器：晚于清理初始化，保证调度开始前目录已是受控状态
+  updater = new RuntimeUpdater(supervisor)
+
   registerIpcHandlers(buildIpcContext())
   setupAppMenu()
   mainWindow = createMainWindow()
   void bootstrapRuntime()
+  updater.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -278,9 +308,13 @@ async function shutdown(): Promise<void> {
 }
 
 app.on('before-quit', (event) => {
-  if (supervisor.running) {
+  const updateInFlight = updater !== null && updater.updating
+  if (supervisor.running || updateInFlight) {
     event.preventDefault()
-    void shutdown().finally(() => app.quit())
+    // 更新中收到退出请求：取消安装并回退未验证指针，不阻塞退出
+    void Promise.allSettled([shutdown(), updater ? updater.cancelForQuit() : Promise.resolve()]).finally(
+      () => app.quit()
+    )
   }
 })
 

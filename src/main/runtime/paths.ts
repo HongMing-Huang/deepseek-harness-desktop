@@ -1,8 +1,8 @@
 import { app } from 'electron'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, arch as osArch, platform } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 
 /**
  * 内嵌运行时（Node / pnpm / dsh）的路径解析与子进程环境构建。
@@ -39,8 +39,15 @@ export function bundledNodePath(): string {
   return join(runtimeRoot(), 'node', runtimeArch(), 'node')
 }
 
-/** dsh CLI 入口 bin.js */
+/** dsh CLI 入口 bin.js：侧载（current.json 指向且存在）优先，否则内嵌 */
 export function dshBinPath(): string {
+  const sideload = readCurrentSideloadVersion()
+  if (sideload) {
+    const bin = sideloadDshBinPath(sideload)
+    if (existsSync(bin)) {
+      return bin
+    }
+  }
   return join(
     runtimeRoot(),
     'dsh',
@@ -55,6 +62,75 @@ export function dshBinPath(): string {
 /** 内嵌 pnpm 可执行入口路径（shim 与 standalone 同名，存在即用） */
 export function bundledPnpmPath(): string {
   return join(runtimeRoot(), 'pnpm', runtimeArch(), 'pnpm')
+}
+
+/* ── 侧载运行时（应用内热更新） ──
+   目录约定：
+     <userData>/runtimes/dsh/<version>/   各侧载版本（dsh-installer 产出）
+     <userData>/runtimes/current.json     生效指针 { dshVersion }
+   指针缺失 / 指向的 bin 不存在时，一律回退内嵌基线。 */
+
+/** 侧载运行时根目录 */
+export function sideloadRoot(): string {
+  return join(app.getPath('userData'), 'runtimes', 'dsh')
+}
+
+/** 侧载指针文件路径 */
+export function currentPointerPath(): string {
+  return join(app.getPath('userData'), 'runtimes', 'current.json')
+}
+
+/** 读取指针指向的侧载版本（不存在/损坏返回 null） */
+export function readCurrentSideloadVersion(): string | null {
+  try {
+    const raw = readFileSync(currentPointerPath(), 'utf-8')
+    const parsed = JSON.parse(raw) as { dshVersion?: string }
+    return typeof parsed.dshVersion === 'string' && parsed.dshVersion.length > 0
+      ? parsed.dshVersion
+      : null
+  } catch {
+    return null
+  }
+}
+
+/** 原子写侧载指针 */
+export function writeCurrentSideloadVersion(version: string): void {
+  const file = currentPointerPath()
+  mkdirSync(dirname(file), { recursive: true })
+  const tmp = `${file}.tmp`
+  writeFileSync(tmp, JSON.stringify({ dshVersion: version }, null, 2) + '\n')
+  renameSync(tmp, file)
+}
+
+/** 删除侧载指针（回退内嵌基线） */
+export function clearCurrentSideloadVersion(): void {
+  try {
+    rmSync(currentPointerPath(), { force: true })
+  } catch {
+    // ignore
+  }
+}
+
+/** 指定侧载版本的 bin.js 路径 */
+export function sideloadDshBinPath(version: string): string {
+  return join(sideloadRoot(), version, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+}
+
+/** 启动清理：仅保留 keep 中的版本目录（current 指向 + lastKnownGoodDsh），其余删除 */
+export function cleanupSideloadRuntimes(keep: string[]): void {
+  try {
+    const entries = readdirSync(sideloadRoot(), { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isDirectory() || keep.includes(entry.name)) continue
+      try {
+        rmSync(join(sideloadRoot(), entry.name), { recursive: true, force: true })
+      } catch {
+        // 单个版本清理失败不阻塞启动
+      }
+    }
+  } catch {
+    // 侧载目录不存在：无需清理
+  }
 }
 
 /** dsh 数据目录（$DSH_HOME），默认 ~/.dsh，尊重用户已有环境变量 */
@@ -131,6 +207,11 @@ export function resolveRuntime(): RuntimeResolution {
     )
   }
 
+  // 版本感知：实际生效的 bin 来自侧载还是内嵌
+  const sideloadVersion = readCurrentSideloadVersion()
+  const usingSideloadDsh = sideloadVersion !== null && dshBin === sideloadDshBinPath(sideloadVersion)
+  const dshVersion = usingSideloadDsh ? (sideloadVersion as string) : bundledDshVersion()
+
   let node = bundledNodePath()
   let usingBundledNode = true
   if (!existsSync(node)) {
@@ -153,8 +234,8 @@ export function resolveRuntime(): RuntimeResolution {
     dshBin,
     pnpm,
     dshHome: dshHome(),
-    dshVersion: bundledDshVersion(),
-    usingSideloadDsh: false
+    dshVersion,
+    usingSideloadDsh
   }
 }
 
