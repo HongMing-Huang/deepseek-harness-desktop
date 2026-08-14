@@ -242,7 +242,7 @@ export interface TokenSamplePayload {
 /* ───────────────────────── preload API 白名单 ───────────────────────── */
 
 /** preload 通过 contextBridge 暴露给 renderer 的 API 白名单 */
-export interface DshDesktopApi {
+export interface DeepseekApi {
   /* 运行时 */
   getStatus(): Promise<RuntimeStatus>
   restartRuntime(): Promise<RuntimeStatus>
@@ -278,6 +278,6 @@ export interface DshDesktopApi {
 
 declare global {
   interface Window {
-    api?: DshDesktopApi
+    api?: DeepseekApi
   }
 }

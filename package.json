@@ -1,9 +1,9 @@
 {
-  "name": "dsh-desktop",
+  "name": "deepseek-harness-desktop",
   "version": "0.1.0",
-  "description": "DSH Desktop - a Codex-like macOS desktop app wrapping the official DeepSeek Harness (dsh) Web UI",
+  "description": "Deepseek - a Codex-like desktop app wrapping the official DeepSeek Harness (dsh) Web UI",
   "main": "./out/main/index.js",
-  "author": "DSH Desktop Contributors",
+  "author": "Deepseek Harness Desktop Contributors",
   "license": "MIT",
   "private": true,
   "engines": {

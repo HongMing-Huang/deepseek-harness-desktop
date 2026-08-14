@@ -1,6 +1,6 @@
 # Changelog
 
-双轨版本说明：应用壳（dsh-desktop 本体）与内嵌 dsh 运行时各自独立演进，下方分两个小节记录。
+双轨版本说明：应用壳（Deepseek 本体，仓库 deepseek-harness-desktop）与内嵌 dsh 运行时各自独立演进，下方分两个小节记录。
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
@@ -8,7 +8,14 @@
 > `### [新版本]` + `upstream-sync：<旧版本> → <新版本>（机器人自动提交，待人工验证后合并）` 的条目，
 > 人工验证 PR 后才会进入正式发布；未验证的条目不代表已发布内容。
 
-## 应用壳（dsh-desktop）
+## 应用壳（Deepseek）
+
+### [未发布]
+
+#### 变更
+
+- 品牌与命名统一：产品名由 `DSH Desktop` 改为 `Deepseek`，仓库名由 `dsh-desktop` 改为 `deepseek-harness-desktop`；同步更新包名、appId（`com.deepseek.harness-desktop`）、窗口/菜单/页面标题、官网下载链接、发布流水线产物命名与文档（内嵌 dsh 运行时及 `~/.dsh` 数据目录等上游命名保持不变）。
+- macOS 用户数据目录随 `productName` 变更为 `~/Library/Application Support/Deepseek/`（Linux 为 `~/.config/Deepseek/`），FAQ 与卸载残留说明已同步。
 
 ### [0.1.0] - 2026-08-14
 

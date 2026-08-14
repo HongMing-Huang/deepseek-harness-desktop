@@ -1,6 +1,6 @@
-appId: com.deepseek.dsh-desktop
-productName: DSH Desktop
-# 产物命名含平台与架构，便区分单架构包
+appId: com.deepseek.harness-desktop
+productName: Deepseek
+# 产物命名含平台与架构，便区分单架构包（${name} 即 package.json name：deepseek-harness-desktop）
 artifactName: ${name}-${version}-${os}-${arch}.${ext}
 directories:
   buildResources: build
@@ -47,5 +47,5 @@ linux:
     - AppImage
   category: Development
   icon: build/icons/512x512.png
-  maintainer: "DSH Desktop Contributors <dsh-desktop@users.noreply.github.com>"
+  maintainer: "Deepseek Harness Desktop Contributors <deepseek-harness-desktop@users.noreply.github.com>"
 # electron-builder 26 已移除顶层 notarize 选项：未配置签名（identity: null）时公证不会执行

@@ -1,4 +1,4 @@
-# DSH Desktop E2E 验证
+# Deepseek E2E 验证
 
 基于 **playwright-core + CDP** 的端到端驱动测试：真实启动 Electron 应用（生产形态，
 页面读 `out/renderer`），通过 Chrome DevTools 协议连接后驱动六个场景并断言。

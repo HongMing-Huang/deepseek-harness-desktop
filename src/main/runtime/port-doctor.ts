@@ -82,7 +82,7 @@ export async function repairPort(port: number): Promise<RepairPortResult> {
     logger.warn(`端口 ${port} 被非 dsh 进程占用：${who}`)
     return {
       ok: false,
-      message: `端口 ${port} 被 ${who} 占用，不属于 DSH Desktop，请手动处理后再试。`,
+      message: `端口 ${port} 被 ${who} 占用，不属于 Deepseek，请手动处理后再试。`,
       occupants: manualOccupants
     }
   }

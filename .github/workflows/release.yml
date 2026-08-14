@@ -151,7 +151,7 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # 无版本号副本：dsh-desktop-<ver>-<os>-<arch>.<ext> → dsh-desktop-<os>-<arch>.<ext>
+      # 无版本号副本：deepseek-harness-desktop-<ver>-<os>-<arch>.<ext> → deepseek-harness-desktop-<os>-<arch>.<ext>
       # 供官网「releases/latest/download/<file>」稳定直链使用
       - name: Create unversioned copies
         shell: bash
@@ -161,14 +161,14 @@ jobs:
           cd dist
           for f in *; do
             case "$f" in
-              dsh-desktop-*) ;;
+              deepseek-harness-desktop-*) ;;
               *) continue ;;
             esac
             case "$f" in
               *.dmg|*.zip|*.deb|*.AppImage) ;;
               *) continue ;;
             esac
-            target="${f/dsh-desktop-$VERSION-/dsh-desktop-}"
+            target="${f/deepseek-harness-desktop-$VERSION-/deepseek-harness-desktop-}"
             if [ "$target" != "$f" ]; then
               cp -f "$f" "$target"
               echo "copy: $f -> $target"
@@ -197,12 +197,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          SHA512="$(openssl dgst -binary -sha512 dist/dsh-desktop-mac-arm64.dmg | openssl base64 -A)"
+          SHA512="$(openssl dgst -binary -sha512 dist/deepseek-harness-desktop-mac-arm64.dmg | openssl base64 -A)"
           cat > dist/latest.yml <<EOF
           # 占位：为未来接入 electron-updater 预留的最小更新清单（当前版本未启用自动更新）。
           version: ${VERSION}
           files:
-            - url: dsh-desktop-mac-arm64.dmg
+            - url: deepseek-harness-desktop-mac-arm64.dmg
               sha512: ${SHA512}
           EOF
 

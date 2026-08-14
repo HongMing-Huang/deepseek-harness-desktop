@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannels,
-  type DshDesktopApi,
+  type DeepseekApi,
   type OpProgress,
   type Preferences,
   type RuntimeStatus,
@@ -27,7 +27,7 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
  * contextBridge 白名单：renderer 只能访问这里显式暴露的能力，
  * 绝不透传 ipcRenderer 本身或 Node 能力。
  */
-const api: DshDesktopApi = {
+const api: DeepseekApi = {
   /* 运行时 */
   getStatus: () => ipcRenderer.invoke(IpcChannels.RuntimeGetStatus),
   restartRuntime: () => ipcRenderer.invoke(IpcChannels.RuntimeRestart),

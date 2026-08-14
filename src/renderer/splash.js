@@ -1,4 +1,4 @@
-// DSH Desktop splash 逻辑：经 window.api（preload 白名单）订阅运行时状态与操作进度。
+// Deepseek splash 逻辑：经 window.api（preload 白名单）订阅运行时状态与操作进度。
 // 纯原生 JS，无框架依赖。
 ;(function () {
   'use strict'

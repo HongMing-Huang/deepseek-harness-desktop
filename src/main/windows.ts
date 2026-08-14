@@ -85,7 +85,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    title: 'DSH Desktop',
+    title: 'Deepseek',
     backgroundColor: '#0d0f14',
     autoHideMenuBar: true,
     webPreferences: {
@@ -319,10 +319,10 @@ export function setupAppMenu(): void {
           submenu: [
             { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => openSettingsWindow() },
             { type: 'separator' },
-            { role: 'hide', label: '隐藏 DSH Desktop' },
+            { role: 'hide', label: '隐藏 Deepseek' },
             { role: 'unhide', label: '显示全部' },
             { type: 'separator' },
-            { role: 'quit', label: '退出 DSH Desktop' }
+            { role: 'quit', label: '退出 Deepseek' }
           ]
         }
       ]

@@ -1,4 +1,4 @@
-// DSH Desktop 插件管理窗口逻辑：经 window.api（preload 白名单）读写插件状态。
+// Deepseek 插件管理窗口逻辑：经 window.api（preload 白名单）读写插件状态。
 // 纯原生 JS，无框架依赖。三区：已安装 / 目录搜索 / OpProgress 进度。
 ;(function () {
   'use strict'

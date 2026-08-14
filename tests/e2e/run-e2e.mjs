@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * DSH Desktop 端到端验证（playwright-core + CDP，无浏览器下载依赖）。
+ * Deepseek 端到端验证（playwright-core + CDP，无浏览器下载依赖）。
  *
  * 流程：
  *   1. mkdtemp 两个临时目录：DSH_HOME（dsh 数据目录）与 HOME（Electron

@@ -1,5 +1,5 @@
 /* ============================================================
-   DSH Desktop 官网交互脚本（零依赖）
+   Deepseek 官网交互脚本（零依赖）
    职责：
    1. 按 navigator.userAgent 推荐下载平台（Mac arm64/x64、Linux x64/arm64）；
    2. 构建指向 GitHub Releases latest 无版本号副本资产的下载链接；
@@ -13,7 +13,7 @@
 // 提交官网上线前务必修改，否则下载链接与版本徽章无法工作
 const OWNER_PLACEHOLDER = 'OWNER_PLACEHOLDER';
 
-const REPO_NAME = 'dsh-desktop';
+const REPO_NAME = 'deepseek-harness-desktop';
 
 /* ---------- owner 解析：URL 参数 > 占位常量 ---------- */
 const urlParams = new URLSearchParams(window.location.search);
@@ -49,12 +49,12 @@ function detectPlatform() {
 
 /* ---------- 产物目录：与 electron-builder.yml artifactName 对齐 ---------- */
 const ASSETS = [
-  { id: 'mac-arm64',   os: 'mac',   arch: 'arm64', file: 'dsh-desktop-mac-arm64.dmg',     kind: 'dmg',      label: 'macOS arm64 · dmg' },
-  { id: 'mac-x64',     os: 'mac',   arch: 'x64',   file: 'dsh-desktop-mac-x64.dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
-  { id: 'linux-x64',   os: 'linux', arch: 'x64',   file: 'dsh-desktop-linux-x64.deb',     kind: 'deb',      label: 'Linux x64 · deb' },
-  { id: 'linux-x64-ai',os: 'linux', arch: 'x64',   file: 'dsh-desktop-linux-x64.AppImage',kind: 'AppImage', label: 'Linux x64 · AppImage' },
-  { id: 'linux-arm64', os: 'linux', arch: 'arm64', file: 'dsh-desktop-linux-arm64.deb',   kind: 'deb',      label: 'Linux arm64 · deb' },
-  { id: 'linux-arm64-ai',os:'linux',arch: 'arm64', file: 'dsh-desktop-linux-arm64.AppImage',kind:'AppImage', label: 'Linux arm64 · AppImage' }
+  { id: 'mac-arm64',   os: 'mac',   arch: 'arm64', file: 'deepseek-harness-desktop-mac-arm64.dmg',     kind: 'dmg',      label: 'macOS arm64 · dmg' },
+  { id: 'mac-x64',     os: 'mac',   arch: 'x64',   file: 'deepseek-harness-desktop-mac-x64.dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
+  { id: 'linux-x64',   os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x64.deb',     kind: 'deb',      label: 'Linux x64 · deb' },
+  { id: 'linux-x64-ai',os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x64.AppImage',kind: 'AppImage', label: 'Linux x64 · AppImage' },
+  { id: 'linux-arm64', os: 'linux', arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.deb',   kind: 'deb',      label: 'Linux arm64 · deb' },
+  { id: 'linux-arm64-ai',os:'linux',arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.AppImage',kind:'AppImage', label: 'Linux arm64 · AppImage' }
 ];
 
 /* ---------- SVG 图标 ---------- */

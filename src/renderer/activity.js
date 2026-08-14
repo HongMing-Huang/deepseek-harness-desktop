@@ -1,4 +1,4 @@
-// DSH Desktop Token 活动侧栏逻辑：数字卡（TokenSample 推送）+ Canvas 趋势图。
+// Deepseek Token 活动侧栏逻辑：数字卡（TokenSample 推送）+ Canvas 趋势图。
 // 纯原生 JS，无框架依赖。管道停用 / 无数据时显示占位，绝不报错弹窗。
 ;(function () {
   'use strict'

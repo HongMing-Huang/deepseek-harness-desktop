@@ -1,6 +1,8 @@
-# DSH Desktop
+# Deepseek
 
-DeepSeek Harness 桌面版：将 `@deepseek-ai/dsh`（DeepSeek 官方 CLI Harness）的 Web UI 打包为类 Codex 形态的 Electron 桌面应用。内嵌 Node / pnpm / dsh 运行时，开箱即用，无需用户预装任何命令行工具。
+[![CI](./actions/workflows/ci.yml/badge.svg)](./actions/workflows/ci.yml) [![Release](./actions/workflows/release.yml/badge.svg)](./actions/workflows/release.yml)
+
+Deepseek（GitHub 仓库：`deepseek-harness-desktop`）— DeepSeek Harness 桌面版：将 `@deepseek-ai/dsh`（DeepSeek 官方 CLI Harness）的 Web UI 打包为类 Codex 形态的 Electron 桌面应用。内嵌 Node / pnpm / dsh 运行时，开箱即用，无需用户预装任何命令行工具。
 
 ## 架构概览
 
@@ -80,16 +82,22 @@ npm run dist:linux-arm64
 
 ## 推送到 GitHub（通用指引）
 
-1. 在 GitHub 上创建一个空仓库（不要初始化 README）。
-2. 本地添加远端：`git remote add origin <你的仓库 URL>`。
-3. 推送：`git push -u origin main`。
+1. 在 GitHub 上创建一个空仓库，命名为 `deepseek-harness-desktop`（不要初始化 README）。
+2. 本地添加远端并推送：
+
+```bash
+git remote add origin https://github.com/<owner>/deepseek-harness-desktop.git
+git push -u origin main
+```
+
+克隆示例：`git clone https://github.com/<owner>/deepseek-harness-desktop.git`。
 
 注意：`resources/runtime/`、`out/`、`release/`、`node_modules/` 均已被 `.gitignore` 排除，不会进入版本库；克隆后需重新执行 `npm install && npm run prepare:runtime`。
 
 推送后还需完成三处占位符替换（详见 `.github/` 与 `site/` 内注释）：
 
 - `site/assets/app.js` 顶部的 `OWNER_PLACEHOLDER` 替换为真实 GitHub 用户名/组织名（官网下载链接与版本徽章依赖它）；
-- `src/main/config.ts` 中的 `DEFAULT_UPDATE_REPO`（占位值 `owner/dsh-desktop`）替换为真实仓库，或在应用设置窗口「壳更新仓库」中配置（持久化于 preferences，优先于默认值）；
+- `src/main/config.ts` 中的 `DEFAULT_UPDATE_REPO`（占位值 `owner/deepseek-harness-desktop`）替换为真实仓库（`<owner>/deepseek-harness-desktop`），或在应用设置窗口「壳更新仓库」中配置（持久化于 preferences，优先于默认值）；
 - 仓库 Settings → Pages → Source 选择 "GitHub Actions"（启用官网自动部署）。
 
 ## CI/CD 与发布流程
@@ -129,8 +137,8 @@ npm run dist:linux-arm64
 
 | 位置 | 内容 | 说明 |
 | --- | --- | --- |
-| macOS `~/Library/Application Support/dsh-desktop/runtimes/`（Linux `~/.config/dsh-desktop/runtimes/`） | dsh 侧载更新目录 | 删除后下次启动自动回用内嵌版本 |
-| `.../dsh-desktop/token-history.json` | Token 活动历史（分钟采样） | 删除后活动图重新累计 |
-| `.../dsh-desktop/preferences.json` | 应用偏好（默认模型/镜像/更新仓库等） | 删除后恢复默认值 |
+| macOS `~/Library/Application Support/Deepseek/runtimes/`（Linux `~/.config/Deepseek/runtimes/`） | dsh 侧载更新目录 | 删除后下次启动自动回用内嵌版本 |
+| `.../Deepseek/token-history.json` | Token 活动历史（分钟采样） | 删除后活动图重新累计 |
+| `.../Deepseek/preferences.json` | 应用偏好（默认模型/镜像/更新仓库等） | 删除后恢复默认值 |
 | `~/.dsh/` | dsh 自身配置（凭据 `.credentials.yaml` 等） | 由 dsh 管理，卸载应用不涉及 |
-| `.../dsh-desktop/logs/main.log` | 主进程日志 | 排障时查看，可安全删除 |
+| `.../Deepseek/logs/main.log` | 主进程日志 | 排障时查看，可安全删除 |

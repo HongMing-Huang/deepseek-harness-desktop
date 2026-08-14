@@ -162,7 +162,7 @@ export class RuntimeUpdater {
     }
     try {
       const res = await net.fetch(`${GITHUB_API}/${prefs.updateRepo}/releases/latest`, {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'dsh-desktop' }
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'deepseek-harness-desktop' }
       })
       if (res.status === 404) {
         logger.info('壳更新检查：仓库不存在或无 release，跳过')
@@ -212,7 +212,7 @@ export class RuntimeUpdater {
     const { response } = await dialog.showMessageBox({
       type: 'info',
       title: '发现应用新版本',
-      message: `DSH Desktop ${update.version} 已发布`,
+      message: `Deepseek ${update.version} 已发布`,
       detail: '将在浏览器中打开下载页面。',
       buttons: ['前往下载', '忽略'],
       defaultId: 0,

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DSH Desktop — DeepSeek Harness 的桌面形态</title>
-  <meta name="description" content="DSH Desktop：DeepSeek Harness 的官方级桌面形态——下载即用，零环境依赖。内嵌 Node / pnpm / dsh 运行时，macOS 与 Linux 双平台安装包。" />
+  <title>Deepseek — DeepSeek Harness 的桌面形态</title>
+  <meta name="description" content="Deepseek：DeepSeek Harness 的官方级桌面形态——下载即用，零环境依赖。内嵌 Node / pnpm / dsh 运行时，macOS 与 Linux 双平台安装包。" />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,8 +16,8 @@
   <!-- ======== 顶部导航 ======== -->
   <header class="nav">
     <a class="nav-brand" href="#top">
-      <img class="nav-logo" src="favicon.png" alt="DSH Desktop logo" width="30" height="30" />
-      <span>DSH&nbsp;Desktop</span>
+      <img class="nav-logo" src="favicon.png" alt="Deepseek logo" width="30" height="30" />
+      <span>Deepseek</span>
     </a>
     <nav class="nav-links" aria-label="页面导航">
       <a href="#features">功能</a>
@@ -44,7 +44,7 @@
       <div class="hero-inner">
         <div class="hero-copy">
           <p class="kicker kicker-dark">// deepseek harness · desktop edition</p>
-          <h1>DSH Desktop</h1>
+          <h1>Deepseek</h1>
           <p class="hero-tagline">
             DeepSeek Harness 的官方级桌面形态——<strong>下载即用，零环境依赖</strong>。
           </p>
@@ -163,14 +163,14 @@
           </div>
           <div class="terminal">
             <div class="terminal-bar"><i></i><i></i><i></i><span>dmg — 拖拽安装</span></div>
-            <pre><code><span class="c"># 1. 下载 dmg，双击打开，把 DSH Desktop 拖入 Applications</span>
+            <pre><code><span class="c"># 1. 下载 dmg，双击打开，把 Deepseek 拖入 Applications</span>
 
 <span class="c"># 2. 应用未签名：首次打开请「右键 → 打开」确认，</span>
 <span class="c">#    或到 系统设置 → 隐私与安全性 → 仍要打开</span>
 
 <span class="c"># 3.（可选）校验安装包完整性</span>
 <span class="c">#    与 Release 附件 SHASUMS256.txt 逐行比对</span>
-<span class="cmd">shasum -a 256</span> dsh-desktop-mac-arm64.dmg</code></pre>
+<span class="cmd">shasum -a 256</span> deepseek-harness-desktop-mac-arm64.dmg</code></pre>
           </div>
           <p class="install-note">Apple Silicon 选 <code>*-mac-arm64.dmg</code>，Intel Mac 选 <code>*-mac-x64.dmg</code>。</p>
         </div>
@@ -183,11 +183,11 @@
           <div class="terminal">
             <div class="terminal-bar"><i></i><i></i><i></i><span>shell — deb / AppImage</span></div>
             <pre><code><span class="c"># Debian / Ubuntu（推荐，自动处理桌面项与依赖）</span>
-<span class="cmd">sudo apt install</span> ./dsh-desktop-linux-x64.deb
+<span class="cmd">sudo apt install</span> ./deepseek-harness-desktop-linux-x64.deb
 
 <span class="c"># 任意发行版：AppImage</span>
-<span class="cmd">chmod +x</span> dsh-desktop-linux-x64.AppImage
-<span class="cmd">./</span>dsh-desktop-linux-x64.AppImage
+<span class="cmd">chmod +x</span> deepseek-harness-desktop-linux-x64.AppImage
+<span class="cmd">./</span>deepseek-harness-desktop-linux-x64.AppImage
 
 <span class="c"># AppImage 需要 FUSE（缺失时）：Ubuntu 22.04+</span>
 <span class="cmd">sudo apt install</span> libfuse2</code></pre>
@@ -282,7 +282,7 @@
             <p>两种方式：</p>
             <ul>
               <li>应用内自动回退：更新后新版本连续启动失败 2 次时，应用会自动切回随包内嵌的 dsh 版本，无需手动处理；</li>
-              <li>手动回退：删除侧载运行时目录即可回到内嵌版本 —— 目录位于系统应用数据区（macOS：<code>~/Library/Application Support/dsh-desktop/runtimes</code>；Linux：<code>~/.config/dsh-desktop/runtimes</code>），删除后重启应用即生效。</li>
+              <li>手动回退：删除侧载运行时目录即可回到内嵌版本 —— 目录位于系统应用数据区（macOS：<code>~/Library/Application Support/Deepseek/runtimes</code>；Linux：<code>~/.config/Deepseek/runtimes</code>），删除后重启应用即生效。</li>
             </ul>
           </div>
         </details>
@@ -301,8 +301,8 @@
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
-        <img src="favicon.png" alt="DSH Desktop logo" width="26" height="26" />
-        <span>DSH Desktop</span>
+        <img src="favicon.png" alt="Deepseek logo" width="26" height="26" />
+        <span>Deepseek</span>
       </div>
 
       <div class="footer-links">
@@ -321,7 +321,7 @@
       </div>
 
       <p class="footer-disclaimer">
-        DSH Desktop 是 DeepSeek Harness 的桌面社区版，非 DeepSeek 官方产品；DeepSeek 及相关标识归其权利人所有。
+        Deepseek（deepseek-harness-desktop）是 DeepSeek Harness 的桌面社区版，非 DeepSeek 官方产品；DeepSeek 及相关标识归其权利人所有。
         代码以 MIT 许可开源。
       </p>
     </div>

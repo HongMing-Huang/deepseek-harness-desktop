@@ -1,4 +1,4 @@
-// DSH Desktop 设置窗口逻辑：经 window.api（preload 白名单）读写配置。
+// Deepseek 设置窗口逻辑：经 window.api（preload 白名单）读写配置。
 // 纯原生 JS，无框架依赖。
 ;(function () {
   'use strict'
@@ -63,9 +63,9 @@
 
     // 更新偏好与版本信息
     els.updateCheckToggle.checked = Boolean(state.preferences && state.preferences.updateCheckEnabled)
-    // 壳更新仓库回显（占位值 owner/dsh-desktop 表示未配置，输入框留空提示格式）
+    // 壳更新仓库回显（占位值 owner/deepseek-harness-desktop 表示未配置，输入框留空提示格式）
     var repo = state.preferences && state.preferences.updateRepo
-    if (repo && repo !== 'owner/dsh-desktop') {
+    if (repo && repo !== 'owner/deepseek-harness-desktop') {
       els.updateRepoInput.value = repo
     }
     els.appVersion.textContent = state.versions.app ? 'v' + state.versions.app : '-'
