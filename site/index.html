@@ -281,8 +281,8 @@
           <div class="faq-body">
             <p>两种方式：</p>
             <ul>
-              <li>在「设置 → 运行时」里选择历史版本回退；</li>
-              <li>或删除侧载目录，应用会自动回退到随包内嵌的 dsh 版本。</li>
+              <li>应用内自动回退：更新后新版本连续启动失败 2 次时，应用会自动切回随包内嵌的 dsh 版本，无需手动处理；</li>
+              <li>手动回退：删除侧载运行时目录即可回到内嵌版本 —— 目录位于系统应用数据区（macOS：<code>~/Library/Application Support/dsh-desktop/runtimes</code>；Linux：<code>~/.config/dsh-desktop/runtimes</code>），删除后重启应用即生效。</li>
             </ul>
           </div>
         </details>

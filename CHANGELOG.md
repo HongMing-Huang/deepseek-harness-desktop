@@ -16,15 +16,29 @@
 
 - 初始骨架：Electron 三层结构（main / preload / renderer）、IPC 集中登记、splash 启动页。
 - `ProcessSupervisor`：dsh web 子进程托管（空闲端口探测、HTTP 探活、优雅停止、pid 文件）。
-- `prepare-runtime` 脚本：内嵌 Node / pnpm / dsh 运行时准备（幂等、重试、进度）。
+- `prepare-runtime` 脚本：内嵌 Node / pnpm / dsh 运行时准备（幂等、重试、进度、平台元数据校验、下载完整性校验）。
 - 主进程文件日志（`userData/logs/main.log`，超限自动截断）。
 - preload 来源守卫：仅应用自有页面可获得 `window.api`。
 - 运行时单架构瘦身（`--platform` / `--arch` / `--prune-others`），Linux 打包支持（deb + AppImage）。
 - 应用图标与 splash 品牌区鲸鱼 logo。
+- 首启引导：未配置 API Key 时 splash 页内联引导卡（0600 凭据写入、可跳过，dsh web 自带 onboarding 兜底）。
+- 启动失败错误分类（`error-classifier`）：按错误类型给出重试 / 端口占用一键释放 / 凭据指引 / 查看日志等分类动作，就绪后意外退出也会回落到错误卡。
+- 设置窗口（`settings`）：默认模型、API Key 管理（单键合并写入凭据文件，不覆盖其它键）、npm 镜像、壳更新仓库（`owner/repo` 格式校验）。
+- 插件管理窗口（`plugins`）：安装（支持指定版本）/卸载/进度展示；遵循 pnpm 10 默认安全策略，不执行依赖包 install scripts。
+- Token 活动侧栏（`activity`）：分钟采样本机会话投影缓存，累计/四分类（未缓存输入/输出/缓存读/缓存写）、上下文压力与 1 小时/今日/7 天趋势图。
+- 双轨自动更新：应用壳 Release 检查（仓库可在设置中配置）+ dsh 侧载安装、校验失败自动回退内嵌版；更新热切换期间与手动重启/端口修复互斥。
+- 官网（GitHub Pages）与四条 CI/CD 流水线：CI 门禁（typecheck + 单测 + build + 隐私合规）、四平台发布矩阵、上游 npm 版本同步机器人、Pages 自动部署。
 
 #### 修复
 
 - 二次激活（dock 重建窗口）时对已就绪进程重复注册一次性监听导致 splash 卡死的问题。
+- 主进程广播改为覆盖全部自有 webContents，activity/settings/plugins 等 WebContentsView 页面不再漏收状态/进度/更新/Token 采样事件。
+- dsh 子进程 spawn 失败（如 ENOENT）后 supervisor 状态不清理导致停止流程悬挂、应用无法退出的问题。
+- 凭据文件改为单键合并写入，不再全量覆盖 `~/.dsh/.credentials.yaml` 中的其它键。
+- 外链守卫改 URL 严格解析（hostname + 端口全等比对），杜绝前缀绕过。
+- 端口占用清理增加进程命令行二次校验，避免 PID 复用误杀无关进程。
+- 偏好保存串行化，避免并发读-改-写丢失字段。
+- Token 采样对瞬态异常（目录未就绪/单次解析失败）改为重试，不再永久停用。
 
 ## dsh 运行时（@deepseek-ai/dsh）
 
