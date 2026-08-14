@@ -1,7 +1,7 @@
 # Deepseek E2E 验证
 
 基于 **playwright-core + CDP** 的端到端驱动测试：真实启动 Electron 应用（生产形态，
-页面读 `out/renderer`），通过 Chrome DevTools 协议连接后驱动五个场景并断言。
+页面读 `out/renderer`），通过 Chrome DevTools 协议连接后驱动六个场景并断言。
 
 ## 运行方式
 
@@ -39,6 +39,7 @@ Electron 进程输出尾部）。
 | c 设置与模型 | `getConfig` 掩码不回明文；`saveModel` 写入 `settings.yaml` 的 `agent-default-model`；`saveApiKey` 幂等且权限保持 0600 | `03-settings-ipc.png` |
 | d 插件目录与并发锁 | catalog ≥8 条且字段齐全；全新环境 `listPlugins` 为空；并发第二个操作被「已有插件操作进行中」拒绝（探测包名不存在，不落任何真实插件） | 无 |
 | e 更新检查降级 | `checkUpdater()` 不抛错、返回合法状态（占位仓库静默跳过）；主窗口仍存活 | 无 |
+| f 会话中心与插件健康 | `listWorkspaces` 返回数组；`listSessions` official/local 双源结构合法；`searchSessions` 空结果不抛错；全新环境健康检查无异常；`resumeSession(空)` 与 `openWorkspaceFolder` 语义正确 | 无 |
 
 注：原生应用菜单无法用 CDP 点击，交互通过页面内 `window.api`
 （preload 白名单）evaluate 验证 IPC 畅通性。

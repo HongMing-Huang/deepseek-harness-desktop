@@ -22,6 +22,7 @@ import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay
 import { logger } from './logger'
 import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
+import * as sessions from './sessions'
 import type {
   ConfigState,
   DiagnosticsResult,
@@ -69,6 +70,14 @@ function showMainWindowFromTray(): void {
   }
   mainWindow = createMainWindow()
   void bootstrapRuntime()
+}
+
+/** 会话中心「恢复」入口：窗口就绪 + 运行时保证在跑（可重复调用，幂等） */
+function ensureMainWindowAndRuntime(): void {
+  showMainWindowFromTray()
+  if (!supervisor.running) {
+    void bootstrapRuntime()
+  }
 }
 
 function setStatus(status: RuntimeStatus): void {
@@ -309,6 +318,16 @@ function buildIpcContext(): IpcContext {
       trayController?.notifyPluginResult('remove', name, result.ok, result.message)
       return result
     },
+    checkPluginsHealth: () => plugins.checkPluginsHealth(),
+    updateAllPlugins: async () => {
+      const result = await plugins.updateAllPlugins()
+      if (result.ok) {
+        trayController?.notifyPluginResult('update-all', '全部插件', true, result.message)
+      } else if (!result.message?.includes('已有插件操作进行中')) {
+        trayController?.notifyPluginResult('update-all', '全部插件', false, result.message)
+      }
+      return result
+    },
 
     checkUpdater: () =>
       updater ? updater.checkNow() : Promise.resolve({
@@ -319,7 +338,16 @@ function buildIpcContext(): IpcContext {
     applyUpdater: (version?: string) =>
       updater
         ? updater.applyUpdate(version)
-        : Promise.resolve({ ok: false, message: '更新服务尚未初始化' })
+        : Promise.resolve({ ok: false, message: '更新服务尚未初始化' }),
+
+    /* 会话中心：sessions.ts 直通（只读官方数据；恢复经主窗口官方 Web 续接） */
+    listWorkspaces: () => sessions.listWorkspaces(),
+    listSessions: (workspaceId?: string) => sessions.listSessions(workspaceId),
+    searchSessions: (query: string) => sessions.searchSessions(query),
+    exportSession: (sessionId, format, includeDescendants) =>
+      sessions.exportSession(sessionId, format, includeDescendants ?? false),
+    resumeSession: (sessionId: string) => Promise.resolve(sessions.resumeSession(sessionId)),
+    openWorkspaceFolder: (path: string) => sessions.openWorkspaceFolder(path)
   }
 }
 
@@ -345,6 +373,12 @@ app.whenReady().then(async () => {
 
   // 更新器：晚于清理初始化，保证调度开始前目录已是受控状态
   updater = new RuntimeUpdater(supervisor)
+
+  // 会话中心依赖注入：web 状态查询（官方 RPC 可用性）+ 恢复入口
+  sessions.initSessions({
+    getWebStatus: () => ({ phase: latestStatus.phase, port: latestStatus.port }),
+    ensureMainWindow: ensureMainWindowAndRuntime
+  })
 
   registerIpcHandlers(buildIpcContext())
   setupAppMenu()

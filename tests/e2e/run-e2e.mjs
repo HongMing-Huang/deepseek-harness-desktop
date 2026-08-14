@@ -10,8 +10,9 @@
  *      （生产形态：无 ELECTRON_RENDERER_URL，页面读 out/renderer）。
  *   3. 等 CDP 端口就绪后 chromium.connectOverCDP 连接，对全部 page target
  *      挂 console / pageerror 监听（断言失败时输出辅助诊断）。
- *   4. 依次驱动并断言五个场景（a 首启引导 / b 启动进度与 web /
- *      c 设置与模型 / d 插件目录与并发锁 / e 更新检查降级），
+ *   4. 依次驱动并断言六个场景（a 首启引导 / b 启动进度与 web /
+ *      c 设置与模型 / d 插件目录与并发锁 / e 更新检查降级 /
+ *      f 会话中心与插件健康），
  *      截图落 tests/e2e/artifacts/。
  *   5. 优雅退出：SIGTERM Electron（主进程 before-quit 会停掉 dsh web），
  *      超时强杀；删除全部临时目录。
@@ -352,6 +353,37 @@ try {
   )
   const alive = await splash.evaluate(() => 1 + 1)
   assertOk(alive === 2, 'e3 主窗口（splash target）仍存活可交互')
+
+  /* ════════ Step f：会话中心 + 插件健康（2.0） ════════ */
+  log('— Step f：会话中心 + 插件健康 —')
+  const workspacesRes = await splash.evaluate(() => window.api.listWorkspaces())
+  assertOk(
+    Array.isArray(workspacesRes?.workspaces),
+    'f1 listWorkspaces 返回数组（全新环境为空）',
+    JSON.stringify(workspacesRes)
+  )
+  const sessionsRes = await splash.evaluate(() => window.api.listSessions())
+  assertOk(
+    Array.isArray(sessionsRes?.items) && ['official', 'local'].includes(sessionsRes?.source),
+    'f2 listSessions 返回合法结构（official/local 双源）',
+    JSON.stringify(sessionsRes)
+  )
+  const searchRes = await splash.evaluate(() => window.api.searchSessions('不存在的会话内容'))
+  assertOk(
+    Array.isArray(searchRes?.items) && searchRes.items.length === 0,
+    'f3 searchSessions 空结果不抛错',
+    JSON.stringify(searchRes)
+  )
+  const healthRes = await splash.evaluate(() => window.api.checkPluginsHealth())
+  assertOk(
+    Array.isArray(healthRes?.items) && healthRes.updatableCount === 0 && healthRes.brokenCount === 0,
+    'f4 全新环境插件健康检查为空且无异常',
+    JSON.stringify(healthRes)
+  )
+  const resumeRes = await splash.evaluate(() => window.api.resumeSession(''))
+  assertOk(resumeRes?.ok === true, 'f5 resumeSession(空) 打开主窗口语义返回 ok', JSON.stringify(resumeRes))
+  const folderRes = await splash.evaluate(() => window.api.openWorkspaceFolder('/definitely/not/exists'))
+  assertOk(folderRes && typeof folderRes.ok === 'boolean', 'f6 openWorkspaceFolder 返回结构合法', JSON.stringify(folderRes))
 
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())

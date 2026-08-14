@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>会话中心</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./sessions.css" />
+  </head>
+  <body>
+    <main class="pane">
+      <header class="pane__head">
+        <div class="head__row">
+          <div class="head__titles">
+            <h1 class="pane__title" id="viewTitle">工作区</h1>
+            <p class="pane__sub" id="viewSub">项目卡片式会话概览（数据来自官方 dsh 存储，只读）</p>
+          </div>
+          <div class="head__actions">
+            <button class="btn btn--ghost" id="backBtn" type="button" hidden>← 返回</button>
+            <input
+              class="input input--search"
+              id="searchInput"
+              type="search"
+              placeholder="搜索会话内容 / 标题 / 路径…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+        <div class="head__meta" id="sourceBadge" hidden></div>
+      </header>
+
+      <!-- 视图一：工作区项目卡片（Trae Workspace 风格首页） -->
+      <section class="view view--home" id="homeView">
+        <div class="card-grid" id="workspaceGrid" role="list"></div>
+      </section>
+
+      <!-- 视图二 / 三：工作区会话列表 / 搜索结果 -->
+      <section class="view view--sessions" id="sessionsView" hidden>
+        <div class="list" id="sessionList" role="list"></div>
+      </section>
+
+      <!-- 导出选择浮层 -->
+      <div class="popover" id="exportPopover" hidden>
+        <button class="popover__item" data-format="zip" type="button">
+          <span class="popover__name">官方存档 (.zip)</span>
+          <span class="popover__desc">含子代理会话，走官方导出接口</span>
+        </button>
+        <button class="popover__item" data-format="markdown" type="button">
+          <span class="popover__name">Markdown (.md)</span>
+          <span class="popover__desc">主会话对话渲染为可读文档</span>
+        </button>
+        <button class="popover__item" data-format="jsonl" type="button">
+          <span class="popover__name">JSONL (.jsonl)</span>
+          <span class="popover__desc">原始会话事件日志</span>
+        </button>
+      </div>
+
+      <footer class="toast" id="toast" hidden></footer>
+    </main>
+
+    <script type="module" src="./sessions.js"></script>
+  </body>
+</html>

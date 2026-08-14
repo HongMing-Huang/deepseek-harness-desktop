@@ -18,6 +18,7 @@ import { join } from 'node:path'
 
 let settingsWindow: BrowserWindow | null = null
 let pluginsWindow: BrowserWindow | null = null
+let sessionsWindow: BrowserWindow | null = null
 
 /* ── 主窗口子视图（模块级单例：应用仅一个主窗口，closed 时清理） ── */
 
@@ -235,6 +236,39 @@ export function openPluginsWindow(): void {
   })
 }
 
+/* ── 会话中心窗口（单例） ── */
+
+/** 打开会话中心窗口（单例：已存在则聚焦） */
+export function openSessionsWindow(): void {
+  if (sessionsWindow && !sessionsWindow.isDestroyed()) {
+    sessionsWindow.focus()
+    return
+  }
+  sessionsWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    minWidth: 800,
+    minHeight: 560,
+    show: false,
+    title: '会话',
+    backgroundColor: '#0b0d12',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webviewTag: false
+    }
+  })
+
+  sessionsWindow.on('ready-to-show', () => sessionsWindow?.show())
+  void loadWindowPage(sessionsWindow, 'sessions.html')
+  sessionsWindow.on('closed', () => {
+    sessionsWindow = null
+  })
+}
+
 /* ── 应用菜单 ── */
 
 /** 应用菜单：设置 / 插件入口 + 基础编辑能力（输入框复制粘贴必需） */
@@ -269,7 +303,10 @@ export function setupAppMenu(): void {
 
   const toolsMenu: MenuItemConstructorOptions = {
     label: '工具',
-    submenu: [{ label: '插件…', click: () => openPluginsWindow() }]
+    submenu: [
+      { label: '会话中心…', click: () => openSessionsWindow() },
+      { label: '插件…', click: () => openPluginsWindow() }
+    ]
   }
 
   const viewItems: MenuItemConstructorOptions[] = []

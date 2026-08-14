@@ -16,6 +16,7 @@ src/
 │   ├── windows.ts             # 主窗口 / dsh web 全幅视图管理与外链守卫
 │   ├── tray.ts                # 托盘常驻（状态感知 tooltip + 菜单 + 原生通知）
 │   ├── notify-gate.ts         # 通知去重器与托盘状态文案（纯函数，可单测）
+│   ├── sessions.ts            # 会话管理中心（官方 RPC 与 ~/.dsh 双源只读 + zstd 导出渲染）
 │   ├── config.ts              # ~/.dsh 配置读写（凭据单键合并、偏好串行化）
 │   ├── logger.ts              # 主进程文件日志（userData/logs/main.log）
 │   └── runtime/
@@ -23,7 +24,7 @@ src/
 │       ├── process-supervisor.ts  # dsh web 子进程托管（端口探测/探活/优雅停止）
 │       ├── dsh-installer.ts   # dsh 侧载安装/校验/失败回退内嵌版
 │       ├── port-doctor.ts     # 端口占用诊断与安全清理（命令行二次校验）
-│       ├── plugins.ts         # dsh 插件安装/卸载与进度广播
+│       ├── plugins.ts         # dsh 插件安装/卸载/健康检查/一键全量更新与进度广播
 │       ├── plugin-progress.ts # pnpm 输出进度解析纯函数
 │       ├── updater.ts         # 双轨更新（壳 Release 检查 + dsh 热切换）
 │       └── error-classifier.ts # 启动失败错误分类与动作建议
@@ -32,7 +33,8 @@ src/
 ├── renderer/                  # 渲染进程（纯原生 JS，无框架）
 │   ├── splash.html/css/js     # 启动等待页（首启引导 + 状态订阅 + 错误分类卡 + 诊断信息）
 │   ├── settings.html/js       # 设置窗口（默认模型/凭据/镜像/壳更新仓库）
-│   ├── plugins.html/js        # 插件管理窗口（安装/卸载/进度）
+│   ├── plugins.html/js        # 插件管理窗口（安装/卸载/健康徽章/一键全量更新/进度）
+│   ├── sessions.html/css/js   # 会话中心（工作区卡片首页 + 会话浏览/搜索/恢复/导出）
 │   └── assets/                # 静态资产（logo 等）
 └── shared/
     ├── ipc.ts                 # IPC 通道与载荷的集中定义（三层共用）
@@ -41,7 +43,8 @@ src/
 tests/
 ├── plugin-progress.test.ts    # pnpm 输出进度解析单测
 ├── tray-notify.test.ts        # 通知去重器与托盘状态文案单测
-└── e2e/run-e2e.mjs            # E2E（playwright-core CDP，引导/进度/配置/插件/更新）
+├── sessions.test.ts           # zstd 帧扫描 / 多帧解码 / Markdown 渲染单测
+└── e2e/run-e2e.mjs            # E2E（playwright-core CDP，引导/进度/配置/插件/更新/会话/健康）
 ```
 
 运行时布局（由 `scripts/prepare-runtime.ts` 产出，打包进 `extraResources`）：
@@ -54,6 +57,13 @@ resources/runtime/
 ```
 
 启动流程：主窗口先加载 splash → `ProcessSupervisor` 拉起 `dsh web --port <n>` → HTTP 探活就绪后窗口切换至 `http://127.0.0.1:<port>`。
+
+### 会话中心与插件市场 2.0（贴合官方的差异化方向）
+
+**红线**：官方 dsh web 一律不改动、不注入（`dshWebView` 无 preload、强沙箱），全部差异化能力由桌面壳外挂实现；dsh 运行时始终来自官方 npm 分发并 6 小时自动跟版。
+
+- 会话中心（菜单「工具 → 会话中心」，托盘同级入口）为**只读**体验层：列表数据来自官方 `workspace.list` / `session.list` RPC（经 `http://127.0.0.1:<port>/api/<method>`，browser-trust 防线放行无 Origin 的本机主进程请求）与 `~/.dsh` 本地存储双源合并；web 未就绪时自动回退本地直读（`storages/workspace.json` + `session_projcache.json` + 会话工件 mtime）。全文搜索走官方 `session.search`，部署关闭搜索索引时回退标题/路径匹配。导出：官方 zip 存档经 `/api/session.export`（含子代理会话）；Markdown / JSONL 由本地方案按官方 zstd 帧算法解码渲染，离线可用。「恢复」即打开主窗口官方 Web 界面续接，会话选择仍由官方 UI 负责。
+- 插件市场 2.0 在既有「目录搜索 + 安装/卸载」之上新增：健康检查（包完整性 / 名称匹配 / 与目录 pin 版本比对，四态徽章）与一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度与并发锁）。
 
 ### dsh 来源说明（内嵌运行时的官方来源）
 

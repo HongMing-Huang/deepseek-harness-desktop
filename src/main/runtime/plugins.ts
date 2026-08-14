@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
+import semver from 'semver'
 import { buildChildEnv, dshHome, resolveRuntime } from './paths'
 import { parsePluginProgressLine, splitProgressChunk } from './plugin-progress'
 import { broadcastOpProgress } from '../ipc'
 import { logger } from '../logger'
-import type { PluginEntry } from '../../shared/ipc'
+import type { PluginEntry, PluginHealthItem, PluginHealthResult } from '../../shared/ipc'
 
 /**
  * dsh 插件管理（web profile）：
@@ -123,13 +124,13 @@ export async function getPluginCatalog(): Promise<PluginCatalogEntry[]> {
 /* ── 安装 / 卸载 ── */
 
 /** 并发保护：正在进行的插件操作（同一时刻至多一个） */
-let activeOperation: { kind: 'install' | 'remove'; name: string } | null = null
+let activeOperation: { kind: 'install' | 'remove' | 'update'; name: string } | null = null
 let activeChild: ChildProcess | null = null
 
-function ensureIdle(kind: 'install' | 'remove', name: string): void {
+function ensureIdle(kind: 'install' | 'remove' | 'update', name: string): void {
   if (activeOperation) {
     throw new Error(
-      `已有插件操作进行中（${activeOperation.kind === 'install' ? '安装' : '卸载'} ${activeOperation.name}），请稍后再试`
+      `已有插件操作进行中（${activeOperation.kind === 'install' ? '安装' : activeOperation.kind === 'remove' ? '卸载' : '更新'} ${activeOperation.name}），请稍后再试`
     )
   }
   activeOperation = { kind, name }
@@ -228,16 +229,119 @@ export function abortActivePluginOperation(): void {
   }
 }
 
+/* ── 健康检查（插件市场 2.0） ── */
+
 /**
- * 运行 `dsh plugin --profile web <action> <target>`：
+ * 健康检查已装插件：
+ * - missing：profile 登记了依赖但 node_modules 中无该包（安装中断/被外力删除）；
+ * - broken：包元数据不可读或包名不匹配；
+ * - stale：目录 pin 了更高版本（有可更新项）；
+ * - healthy：其余（元数据可读且版本不低于目录 pin）。
+ */
+export async function checkPluginsHealth(): Promise<PluginHealthResult> {
+  const installed = await listInstalledPlugins()
+  const catalog = await getPluginCatalog()
+  const byName = new Map(catalog.map((c) => [c.name, c]))
+
+  const items: PluginHealthItem[] = []
+  for (const plugin of installed) {
+    let raw: string | null = null
+    try {
+      raw = await readFile(join(profileDir(), 'node_modules', plugin.name, 'package.json'), 'utf-8')
+    } catch {
+      raw = null
+    }
+    if (!raw) {
+      items.push({
+        name: plugin.name,
+        state: 'missing',
+        detail: '已登记但未安装（node_modules 中缺少该包）'
+      })
+      continue
+    }
+    let pkg: { name?: unknown; version?: unknown } | null = null
+    try {
+      pkg = JSON.parse(raw) as { name?: unknown; version?: unknown }
+    } catch {
+      pkg = null
+    }
+    if (!pkg || typeof pkg.name !== 'string' || pkg.name !== plugin.name) {
+      items.push({
+        name: plugin.name,
+        state: 'broken',
+        detail: '包元数据损坏或名称不匹配'
+      })
+      continue
+    }
+    const installedVersion = typeof pkg.version === 'string' ? pkg.version : undefined
+    const catalogVersion = byName.get(plugin.name)?.version
+    let state: PluginHealthItem['state'] = 'healthy'
+    let detail: string | undefined
+    if (
+      installedVersion &&
+      catalogVersion &&
+      semver.valid(installedVersion) &&
+      semver.valid(catalogVersion) &&
+      semver.gt(catalogVersion, installedVersion)
+    ) {
+      state = 'stale'
+      detail = `目录已收录更新版本 v${catalogVersion}`
+    }
+    items.push({ name: plugin.name, state, installedVersion, catalogVersion, detail })
+  }
+
+  return {
+    items,
+    updatableCount: items.filter((i) => i.state === 'stale').length,
+    brokenCount: items.filter((i) => i.state === 'missing' || i.state === 'broken').length
+  }
+}
+
+/**
+ * 一键全量更新：`dsh plugin --profile web update`（转发 pnpm update，
+ * 按 profile 内依赖范围把全部插件刷新到兼容的最新版），
+ * 全程 OpProgress 广播（op: plugin-update），完成需重启运行时生效。
+ */
+export async function updateAllPlugins(): Promise<{ ok: boolean; message?: string }> {
+  const op = 'plugin-update' as const
+  try {
+    ensureIdle('update', '全部插件')
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) }
+  }
+
+  logger.info('插件全量更新开始')
+  broadcastOpProgress({ op, state: 'start', message: '正在全量更新插件…' })
+  try {
+    await runPluginCommand('update', '', op)
+    logger.info('插件全量更新完成')
+    broadcastOpProgress({
+      op,
+      state: 'done',
+      percent: 100,
+      message: '全部插件已更新到兼容最新版本，重启运行时后生效'
+    })
+    return { ok: true, message: '全部插件已更新，重启运行时后生效' }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    logger.warn(`插件全量更新失败：${message}`)
+    broadcastOpProgress({ op, state: 'error', message })
+    return { ok: false, message }
+  } finally {
+    clearOperation()
+  }
+}
+
+/**
+ * 运行 `dsh plugin --profile web <action> [target]`（update 无 target）：
  * - env 注入内嵌 node/pnpm 与 DSH_HOME（buildChildEnv），cwd 为用户 home；
  * - stdout/stderr 按行解析 pnpm 进度并广播（解析不到时广播不确定进度）；
  * - 退出码非 0 抛错（带输出尾部摘要，不含敏感信息）。
  */
 function runPluginCommand(
-  action: 'add' | 'remove',
+  action: 'add' | 'remove' | 'update',
   target: string,
-  op: 'plugin-install' | 'plugin-remove'
+  op: 'plugin-install' | 'plugin-remove' | 'plugin-update'
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let resolution
@@ -248,7 +352,10 @@ function runPluginCommand(
       return
     }
 
-    const args = [resolution.dshBin, 'plugin', '--profile', 'web', action, target]
+    const args =
+      action === 'update'
+        ? [resolution.dshBin, 'plugin', '--profile', 'web', 'update']
+        : [resolution.dshBin, 'plugin', '--profile', 'web', action, target]
     const child = spawn(resolution.node, args, {
       env: buildChildEnv(resolution),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -273,13 +380,14 @@ function runPluginCommand(
     }
     
     // 时间驱动的平滑兑底进度（解析不到行进度时也能给 UI 反馈）：20% → 85%
+    const verb = action === 'add' ? '安装' : action === 'remove' ? '卸载' : '更新'
     let fallbackPercent = 20
     const ticker = setInterval(() => {
       if (fallbackPercent < 85) {
         fallbackPercent += 1
         broadcastProgress(
           fallbackPercent,
-          `${action === 'add' ? '安装' : '卸载'}进行中（pnpm 运行 ${fallbackPercent}%）`
+          `${verb}进行中（pnpm 运行 ${fallbackPercent}%）`
         )
       }
     }, 1_200)

@@ -6,6 +6,9 @@
   var els = {
     installedCount: document.getElementById('installedCount'),
     installedList: document.getElementById('installedList'),
+    healthSummary: document.getElementById('healthSummary'),
+    healthBtn: document.getElementById('healthBtn'),
+    updateAllBtn: document.getElementById('updateAllBtn'),
     catalogCount: document.getElementById('catalogCount'),
     catalogSearch: document.getElementById('catalogSearch'),
     catalogList: document.getElementById('catalogList'),
@@ -17,7 +20,9 @@
 
   var api = window.api
   var installed = [] // 已装插件名集合（目录内标记状态用）
+  var installedFull = [] // 已装插件完整条目（健康检查后重渲染用）
   var catalog = []
+  var health = [] // 健康检查结果（按 name 索引）
   var restartPending = false // 完成后等待一键重启
 
   /* ── 渲染 ── */
@@ -30,6 +35,7 @@
   }
 
   function renderInstalled(list) {
+    installedFull = list
     installed = list.map(function (p) {
       return p.name
     })
@@ -51,9 +57,14 @@
       if (plugin.version) {
         nameRow.appendChild(el('span', 'item__version', 'v' + plugin.version))
       }
+      appendHealthBadge(nameRow, plugin.name)
       main.appendChild(nameRow)
       if (plugin.description) {
         main.appendChild(el('div', 'item__desc', plugin.description))
+      }
+      var h = findHealth(plugin.name)
+      if (h && h.detail) {
+        main.appendChild(el('div', 'item__desc item__desc--warn', h.detail))
       }
       item.appendChild(main)
 
@@ -65,6 +76,94 @@
       item.appendChild(btn)
       els.installedList.appendChild(item)
     })
+  }
+
+  /* ── 健康徽章（插件市场 2.0：healthy / stale / missing / broken） ── */
+
+  var HEALTH_LABELS = {
+    healthy: { text: '健康', cls: 'badge--ok' },
+    stale: { text: '可更新', cls: 'badge--warn' },
+    missing: { text: '缺失', cls: 'badge--err' },
+    broken: { text: '损坏', cls: 'badge--err' }
+  }
+
+  function findHealth(name) {
+    for (var i = 0; i < health.length; i++) {
+      if (health[i].name === name) return health[i]
+    }
+    return null
+  }
+
+  function appendHealthBadge(nameRow, name) {
+    var h = findHealth(name)
+    if (!h) return
+    var conf = HEALTH_LABELS[h.state] || HEALTH_LABELS.healthy
+    nameRow.appendChild(el('span', 'item__tag badge ' + conf.cls, conf.text))
+  }
+
+  function renderHealthSummary(result) {
+    if (!result || !result.items || result.items.length === 0) {
+      els.healthSummary.hidden = true
+      return
+    }
+    var parts = []
+    if (result.updatableCount > 0) {
+      parts.push(result.updatableCount + ' 个可更新')
+    }
+    if (result.brokenCount > 0) {
+      parts.push(result.brokenCount + ' 个异常')
+    }
+    if (parts.length === 0) {
+      parts.push('全部健康')
+    }
+    els.healthSummary.hidden = false
+    els.healthSummary.textContent = parts.join(' · ')
+    els.healthSummary.className =
+      'zone__health' + (result.updatableCount > 0 || result.brokenCount > 0 ? ' is-warn' : ' is-ok')
+    els.updateAllBtn.disabled = result.updatableCount === 0
+  }
+
+  function refreshHealth() {
+    if (!api) return Promise.resolve()
+    els.healthBtn.disabled = true
+    els.healthBtn.textContent = '检查中…'
+    return api
+      .checkPluginsHealth()
+      .then(function (result) {
+        health = (result && result.items) || []
+        renderHealthSummary(result)
+        renderInstalled(installedFull)
+      })
+      .catch(function () {
+        els.healthBtn.textContent = '检查失败'
+      })
+      .finally(function () {
+        els.healthBtn.disabled = false
+        els.healthBtn.textContent = '检查健康'
+      })
+  }
+
+  /* ── 一键全量更新（plugin-update 进度复用 OpProgress 区） ── */
+
+  function doUpdateAll() {
+    if (!api || restartPending) return
+    setAllButtonsDisabled(true)
+    els.updateAllBtn.disabled = true
+    showProgress('start', '正在提交全量更新请求…')
+    api
+      .updateAllPlugins()
+      .then(function (result) {
+        setAllButtonsDisabled(false)
+        if (!result.ok) {
+          showProgress('error', result.message || '全量更新失败')
+        }
+        void refreshLists()
+        void refreshHealth()
+      })
+      .catch(function () {
+        setAllButtonsDisabled(false)
+        showProgress('error', '全量更新请求失败')
+      })
   }
 
   function renderCatalog() {
@@ -133,10 +232,12 @@
 
   function load() {
     if (!api) return
-    Promise.all([api.listPlugins(), api.getPluginCatalog()])
+    Promise.all([api.listPlugins(), api.getPluginCatalog(), api.checkPluginsHealth()])
       .then(function (results) {
         renderInstalled((results[0] && results[0].plugins) || [])
         catalog = (results[1] && results[1].catalog) || []
+        health = (results[2] && results[2].items) || []
+        renderHealthSummary(results[2])
         renderCatalog()
       })
       .catch(function () {
@@ -237,9 +338,9 @@
   function bindProgressEvents() {
     api.onOpProgress(function (p) {
       if (!p) return
-      if (p.op !== 'plugin-install' && p.op !== 'plugin-remove') return
+      if (p.op !== 'plugin-install' && p.op !== 'plugin-remove' && p.op !== 'plugin-update') return
 
-      var verb = p.op === 'plugin-install' ? '安装' : '卸载'
+      var verb = p.op === 'plugin-install' ? '安装' : p.op === 'plugin-remove' ? '卸载' : '更新'
       if (p.state === 'start') {
         els.restartBtn.hidden = true
         restartPending = false
@@ -290,6 +391,12 @@
 
   if (api) {
     els.catalogSearch.addEventListener('input', renderCatalog)
+    els.healthBtn.addEventListener('click', function () {
+      void refreshHealth()
+    })
+    els.updateAllBtn.addEventListener('click', function () {
+      void doUpdateAll()
+    })
     bindProgressEvents()
     bindRestart()
     load()

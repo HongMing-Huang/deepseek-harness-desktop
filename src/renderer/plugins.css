@@ -410,3 +410,75 @@ body {
     opacity: 0.35;
   }
 }
+
+/* ── 插件市场 2.0：健康检查 / 一键全量更新 ── */
+
+.zone__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.zone__health {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.zone__health.is-ok {
+  color: #b9ecd4;
+  background: rgba(61, 220, 151, 0.12);
+  border: 1px solid rgba(61, 220, 151, 0.35);
+}
+
+.zone__health.is-warn {
+  color: #ecd3a0;
+  background: rgba(217, 164, 65, 0.14);
+  border: 1px solid rgba(217, 164, 65, 0.4);
+}
+
+.item__tag {
+  flex-shrink: 0;
+  display: inline-block;
+  padding: 1.5px 7px;
+  font-size: 10px;
+  font-weight: 560;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.badge--ok {
+  color: #b9ecd4;
+  background: rgba(61, 220, 151, 0.12);
+  border: 1px solid rgba(61, 220, 151, 0.35);
+}
+
+.badge--err {
+  color: #f2b8b5;
+  background: rgba(240, 86, 79, 0.12);
+  border: 1px solid rgba(240, 86, 79, 0.4);
+}
+
+.item__desc--warn {
+  color: #d9a441;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #5d79ff;
+  border-color: #5d79ff;
+}
+
+.btn--primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  background: var(--accent);
+  border-color: var(--accent);
+}

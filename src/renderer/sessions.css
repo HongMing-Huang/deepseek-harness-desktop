@@ -1,0 +1,469 @@
+/* ── Deepseek 会话中心窗口 ──────────────────────────────────────
+   深色 · 工作区项目卡片首页（Trae Workspace 风格）+ 会话列表 / 搜索。
+   延续应用设计变量与品牌蓝强调色。 */
+
+:root {
+  --bg: #0b0d12;
+  --bg-raised: #10131a;
+  --bg-sunken: #08090e;
+  --ink: #e8eaf0;
+  --ink-dim: #8b91a3;
+  --ink-faint: #4c5264;
+  --accent: #4d6bfe;
+  --accent-soft: rgba(77, 107, 254, 0.35);
+  --error: #f0564f;
+  --ok: #3ddc97;
+  --warn: #d9a441;
+  --line: rgba(139, 145, 163, 0.16);
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+    'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.pane {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px 16px;
+  gap: 14px;
+}
+
+/* ── 头部 ── */
+
+.pane__head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.head__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pane__title {
+  font-size: 18px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+}
+
+.pane__sub {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.head__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.head__meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── 通用控件 ── */
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 540;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.btn:hover {
+  background: #161a24;
+  border-color: rgba(139, 145, 163, 0.32);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: #5d79ff;
+  border-color: #5d79ff;
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-dim);
+}
+
+.btn--ghost:hover {
+  color: var(--ink);
+  background: rgba(139, 145, 163, 0.1);
+  border-color: transparent;
+}
+
+.btn--mini {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+.input--search {
+  width: 260px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  font-family: var(--sans);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input--search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.input--search::placeholder {
+  color: var(--ink-faint);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 560;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.badge--ok {
+  color: #b9ecd4;
+  background: rgba(61, 220, 151, 0.12);
+  border: 1px solid rgba(61, 220, 151, 0.35);
+}
+
+.badge--muted {
+  color: var(--ink-dim);
+  background: rgba(139, 145, 163, 0.1);
+  border: 1px solid var(--line);
+}
+
+/* ── 视图切换 ── */
+
+.view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.view[hidden] {
+  display: none;
+}
+
+/* ── 工作区项目卡片 ── */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--accent-soft);
+  background: #12161f;
+  transform: translateY(-1px);
+}
+
+.card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(77, 107, 254, 0.14);
+  border: 1px solid rgba(77, 107, 254, 0.3);
+  color: #9db1ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.card__name {
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card__path {
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  flex-wrap: wrap;
+}
+
+.card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* ── 会话列表 ── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.item {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.item__main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.item__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.item__name {
+  font-size: 13px;
+  font-weight: 590;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item__tag {
+  flex-shrink: 0;
+}
+
+.item__desc {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item__snippet {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── 空态 ── */
+
+.empty {
+  padding: 42px 20px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.empty__hint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  opacity: 0.8;
+}
+
+/* ── 导出浮层 ── */
+
+.popover {
+  position: fixed;
+  z-index: 20;
+  background: #141824;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 240px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.popover__item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--sans);
+}
+
+.popover__item:hover {
+  background: rgba(77, 107, 254, 0.14);
+}
+
+.popover__name {
+  font-size: 12.5px;
+  font-weight: 580;
+}
+
+.popover__desc {
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+/* ── Toast ── */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  background: #141824;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  z-index: 30;
+  max-width: 72%;
+}
+
+.toast.is-error {
+  border-color: rgba(240, 86, 79, 0.5);
+  color: #ffd7d5;
+}
+
+.toast.is-ok {
+  border-color: rgba(61, 220, 151, 0.45);
+  color: #c9f2e2;
+}
+
+/* ── 滚动条 ── */
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 145, 163, 0.22);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 145, 163, 0.4);
+  background-clip: content-box;
+}

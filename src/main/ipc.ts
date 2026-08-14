@@ -5,11 +5,18 @@ import {
   type DiagnosticsResult,
   type OpProgress,
   type PluginEntry,
+  type PluginHealthResult,
   type Preferences,
   type RepairPortResult,
   type RuntimeStatus,
+  type SessionExportFormat,
+  type SessionsExportResult,
+  type SessionsListResult,
+  type SessionsResumeResult,
+  type SessionsSearchResult,
   type UpdaterCheckResult,
-  type UpdaterStatusPayload
+  type UpdaterStatusPayload,
+  type WorkspaceSummary
 } from '../shared/ipc'
 import type { PluginCatalogEntry } from './runtime/plugins'
 
@@ -36,6 +43,20 @@ export interface IpcContext {
   getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
   installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }>
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
+  checkPluginsHealth(): Promise<PluginHealthResult>
+  updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
+
+  /* 会话中心（sessions.ts 实现） */
+  listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>
+  listSessions(workspaceId?: string): Promise<SessionsListResult>
+  searchSessions(query: string): Promise<SessionsSearchResult>
+  exportSession(
+    sessionId: string,
+    format: SessionExportFormat,
+    includeDescendants?: boolean
+  ): Promise<SessionsExportResult>
+  resumeSession(sessionId: string): Promise<SessionsResumeResult>
+  openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>
@@ -71,6 +92,26 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     ctx.installPlugin(name, version)
   )
   ipcMain.handle(IpcChannels.PluginsRemove, (_e, name: string) => ctx.removePlugin(name))
+  ipcMain.handle(IpcChannels.PluginsHealth, () => ctx.checkPluginsHealth())
+  ipcMain.handle(IpcChannels.PluginsUpdateAll, () => ctx.updateAllPlugins())
+
+  /* 会话中心（sessions.ts） */
+  ipcMain.handle(IpcChannels.SessionsWorkspaces, () => ctx.listWorkspaces())
+  ipcMain.handle(IpcChannels.SessionsList, (_e, workspaceId?: string) =>
+    ctx.listSessions(workspaceId)
+  )
+  ipcMain.handle(IpcChannels.SessionsSearch, (_e, query: string) => ctx.searchSessions(query))
+  ipcMain.handle(
+    IpcChannels.SessionsExport,
+    (_e, sessionId: string, format: SessionExportFormat, includeDescendants?: boolean) =>
+      ctx.exportSession(sessionId, format, includeDescendants)
+  )
+  ipcMain.handle(IpcChannels.SessionsResume, (_e, sessionId: string) =>
+    ctx.resumeSession(sessionId)
+  )
+  ipcMain.handle(IpcChannels.SessionsOpenFolder, (_e, path: string) =>
+    ctx.openWorkspaceFolder(path)
+  )
 }
 
 /* ── 事件广播：向所有应用自有页面推送 ── */

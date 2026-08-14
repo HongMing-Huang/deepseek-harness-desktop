@@ -44,6 +44,18 @@ const api: DeepseekApi = {
   installPlugin: (name: string, version?: string) =>
     ipcRenderer.invoke(IpcChannels.PluginsInstall, name, version),
   removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
+  checkPluginsHealth: () => ipcRenderer.invoke(IpcChannels.PluginsHealth),
+  updateAllPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsUpdateAll),
+
+  /* 会话中心 */
+  listWorkspaces: () => ipcRenderer.invoke(IpcChannels.SessionsWorkspaces),
+  listSessions: (workspaceId?: string) =>
+    ipcRenderer.invoke(IpcChannels.SessionsList, workspaceId),
+  searchSessions: (query: string) => ipcRenderer.invoke(IpcChannels.SessionsSearch, query),
+  exportSession: (sessionId: string, format: import('../shared/ipc').SessionExportFormat, includeDescendants?: boolean) =>
+    ipcRenderer.invoke(IpcChannels.SessionsExport, sessionId, format, includeDescendants),
+  resumeSession: (sessionId: string) => ipcRenderer.invoke(IpcChannels.SessionsResume, sessionId),
+  openWorkspaceFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SessionsOpenFolder, path),
 
   /* 配置 */
   getConfig: () => ipcRenderer.invoke(IpcChannels.ConfigGet),

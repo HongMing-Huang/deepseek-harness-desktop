@@ -15,8 +15,10 @@
 #### 新增
 
 - `prepare-runtime` 新增 dsh 官方来源校验：安装（含幂等跳过）后验证包名/钉死版本/`repository` 指向 `deepseek-ai/deepseek-harness`，并核对 npm registry 元数据维护者属 deepseek-ai；任一不匹配即构建失败，安装日志打印来源声明。
-- 托盘常驻（`tray`）：官方黑鲸剪影模板图标（macOS 16/32px template，Linux/Windows 32px）；菜单提供显示主窗口 / 插件市场 / 设置 / 检查更新 / 退出；tooltip 附加运行状态（启动中/运行中/出错/更新中，订阅 supervisor 与更新器状态）。
-- 原生通知：运行时启动失败（含分类器原因摘要）、发现 dsh 新版本、插件安装/卸载完成（成功与失败）三类事件弹出系统通知，点击聚焦对应窗口；同 key 60s 去重去抖（纯函数去重器 + 单测），通知内容不含密钥与日志原文。
+- 托盘常驻（`tray`）：官方黑鲸剪影模板图标（macOS 16/32px template，Linux/Windows 32px）；菜单提供显示主窗口 / 会话中心 / 插件市场 / 设置 / 检查更新 / 退出；tooltip 附加运行状态（启动中/运行中/出错/更新中，订阅 supervisor 与更新器状态）。
+- 原生通知：运行时启动失败（含分类器原因摘要）、发现 dsh 新版本、插件安装/卸载/全量更新完成（成功与失败）三类事件弹出系统通知，点击聚焦对应窗口；同 key 60s 去重去抖（纯函数去重器 + 单测），通知内容不含密钥与日志原文。
+- 会话管理中心（`sessions`，对标 Claude Desktop / Codex 会话体验 + Trae Workspace 项目卡片）：工作区卡片首页（项目名/路径/会话数/最近活动，可在官方界面打开或在访达中定位目录）；工作区钻入浏览会话（标题/轮数/步数/最近活动，官方 `workspace.list`+`session.list` RPC 与 `~/.dsh` 本地直读双源合并去重，web 未就绪自动回退本地）；跨工作区全文搜索（官方 `session.search` RPC，部署关闭搜索时回退标题/路径元数据匹配）；恢复会话（打开主窗口官方 Web 界面续接，不注入、不改写官方 web 状态）；导出会话（官方 zip 存档含子代理会话经 `/api/session.export`；本地方案按官方 zstd 帧算法解码渲染 Markdown / 原始 JSONL，可离线导出）。全部只读，绝不改写 dsh 自身数据。
+- 插件市场 2.0：已装插件健康检查（healthy/stale/missing/broken 四态徽章：包完整性、名称匹配、与目录 pin 版本比对）；一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度管线 OpProgress 与并发锁，完成可一键重启运行时）；健康摘要与可更新计数，异常/可更新项徽章展示。
 
 #### 移除
 
