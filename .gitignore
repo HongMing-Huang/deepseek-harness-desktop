@@ -7,3 +7,6 @@ resources/runtime/
 build/icon.iconset/
 *.log
 .DS_Store
+
+# E2E 截图等本地证据（不入库）
+tests/e2e/artifacts/
