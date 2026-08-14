@@ -144,6 +144,30 @@
       "repo": "https://github.com/anweat/dsh-voice-webspeech",
       "category": "界面增强",
       "compatibility": "verified"
+    },
+    {
+      "name": "dsh-vision-router",
+      "version": "1.0.1",
+      "description": "为纯文本智能体赋予视觉能力：内置免费视觉链与问答、定位、裁剪、OCR、取色、截图等像素级视觉工具",
+      "repo": "https://github.com/ysr666/dsh-vision-router",
+      "category": "视觉能力",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-browser",
+      "version": "0.1.0",
+      "description": "基于 Playwright 的浏览器自动化（打开、点击、输入、截图、执行 JS），让智能体直接操控真实网页",
+      "repo": "https://github.com/ben7am1n/dsh-browser",
+      "category": "自动化",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-atuin",
+      "version": "0.1.1",
+      "description": "将网页端输入的每条提示自动追加到 Atuin shell 历史，便于终端集成检索",
+      "repo": "https://github.com/RealAlexandreAI/dsh-atuin",
+      "category": "记忆增强",
+      "compatibility": "verified"
     }
   ]
 }

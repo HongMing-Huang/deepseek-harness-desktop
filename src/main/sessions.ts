@@ -200,7 +200,7 @@ interface RpcResult<T> {
   value: T
 }
 
-/** 调用官方 /api/<method>；web 未就绪或业务失败抛错 */
+/** 调用官方 /api/<method>；web 未就绪或业务失败抛错（20s 超时防挂死） */
 async function dshRpc<T>(method: string, payload: Record<string, unknown>): Promise<T> {
   const status = deps?.getWebStatus()
   const port = status?.port
@@ -213,7 +213,8 @@ async function dshRpc<T>(method: string, payload: Record<string, unknown>): Prom
     res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method, payload })
+      body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method, payload }),
+      signal: AbortSignal.timeout(20_000)
     })
   } catch (err) {
     throw new Error(`官方接口不可达：${err instanceof Error ? err.message : String(err)}`)
