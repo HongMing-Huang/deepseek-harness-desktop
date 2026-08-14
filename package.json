@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "DSH Desktop - a Codex-like macOS desktop app wrapping the official DeepSeek Harness (dsh) Web UI",
   "main": "./out/main/index.js",
-  "author": "DeepSeek",
+  "author": "DSH Desktop Contributors",
   "license": "MIT",
   "private": true,
   "engines": {

@@ -70,7 +70,7 @@ export class ProcessSupervisor extends EventEmitter {
   private stoppedByUser = false
   private resolution: RuntimeResolution | null = null
 
-  private phase: 'starting' | 'ready' | 'stopped' = 'stopped'
+  private currentPhase: 'starting' | 'ready' | 'stopped' = 'stopped'
   private currentPort: number | null = null
 
   get running(): boolean {
@@ -79,6 +79,18 @@ export class ProcessSupervisor extends EventEmitter {
 
   get port(): number | null {
     return this.currentPort
+  }
+
+  /** 当前阶段（只读视图，不改变状态机） */
+  get phase(): 'starting' | 'ready' | 'stopped' {
+    return this.currentPhase
+  }
+
+  /** 就绪时返回 web 地址，否则 null（供上层复用已就绪进程） */
+  get url(): string | null {
+    return this.currentPhase === 'ready' && this.currentPort !== null
+      ? `http://127.0.0.1:${this.currentPort}`
+      : null
   }
 
   private get pidFilePath(): string {
@@ -133,7 +145,7 @@ export class ProcessSupervisor extends EventEmitter {
       void this.removePidFile()
       this.emit('exit', { code, signal })
       // 非主动停止且未成功就绪过 → 视为启动失败
-      if (!this.stoppedByUser && this.phase === 'starting') {
+      if (!this.stoppedByUser && this.currentPhase === 'starting') {
         this.stdoutTail.flush()
         this.stderrTail.flush()
         this.emit('error', {
@@ -144,7 +156,7 @@ export class ProcessSupervisor extends EventEmitter {
       }
     })
 
-    this.phase = 'starting'
+    this.currentPhase = 'starting'
     await this.writePidFile(child.pid)
     this.pollUntilReady(port)
 
@@ -159,7 +171,7 @@ export class ProcessSupervisor extends EventEmitter {
     const tick = async (): Promise<void> => {
       if (!this.running) return
       if (await probeHttp(port)) {
-        this.phase = 'ready'
+        this.currentPhase = 'ready'
         this.emit('ready', { port, url })
         return
       }
@@ -183,11 +195,11 @@ export class ProcessSupervisor extends EventEmitter {
     const child = this.child
     if (!child || child.exitCode !== null) {
       this.child = null
-      this.phase = 'stopped'
+      this.currentPhase = 'stopped'
       return
     }
     this.stoppedByUser = true
-    this.phase = 'stopped'
+    this.currentPhase = 'stopped'
     this.clearReadyTimer()
 
     const exited = new Promise<void>((resolve) => {

@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { ProcessSupervisor } from './runtime/process-supervisor'
 import { registerIpcHandlers, broadcastStatus } from './ipc'
+import { logger } from './logger'
 import type { RuntimeStatus } from '../shared/ipc'
 
 let mainWindow: BrowserWindow | null = null
@@ -78,17 +79,21 @@ function setStatus(status: RuntimeStatus): void {
   broadcastStatus(status)
 }
 
-async function bootstrapRuntime(): Promise<void> {
-  setStatus({ phase: 'starting', message: '正在启动 DeepSeek Harness…' })
-
-  supervisor.once('ready', ({ port, url }) => {
+/**
+ * supervisor 事件监听只在模块初始化时挂一次；
+ * bootstrapRuntime 可安全重复调用（窗口重建 / activate 二次进入）。
+ */
+function attachSupervisorListeners(): void {
+  supervisor.on('ready', ({ port, url }) => {
+    logger.info(`dsh web 就绪：${url}`)
     setStatus({ phase: 'ready', port, url, message: 'dsh web 已就绪' })
     if (mainWindow && !mainWindow.isDestroyed()) {
       void mainWindow.loadURL(url)
     }
   })
 
-  supervisor.once('error', ({ message, stderrTail }) => {
+  supervisor.on('error', ({ message, stderrTail }) => {
+    logger.error(`dsh web 启动失败：${message}`)
     setStatus({
       phase: 'error',
       message,
@@ -100,12 +105,30 @@ async function bootstrapRuntime(): Promise<void> {
   supervisor.on('exit', ({ code, signal }) => {
     // 仅在就绪后的意外退出时通知 UI（启动期退出已由 error 事件覆盖）
     if (latestStatus.phase === 'ready') {
+      logger.warn(`dsh web 已退出（code=${code ?? 'null'}, signal=${signal ?? 'null'}）`)
       setStatus({
         phase: 'stopped',
         message: `dsh web 已退出（code=${code ?? 'null'}, signal=${signal ?? 'null'}）`
       })
     }
   })
+}
+
+attachSupervisorListeners()
+
+async function bootstrapRuntime(): Promise<void> {
+  // 已就绪的进程直接复用：避免对已 ready 的 supervisor 重复挂 once 监听（永不触发）导致卡 splash
+  const url = supervisor.url
+  if (supervisor.running && supervisor.phase === 'ready' && url) {
+    logger.info(`复用已就绪的 dsh web：${url}`)
+    setStatus({ phase: 'ready', port: supervisor.port ?? undefined, url, message: 'dsh web 已就绪' })
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      void mainWindow.loadURL(url)
+    }
+    return
+  }
+
+  setStatus({ phase: 'starting', message: '正在启动 DeepSeek Harness…' })
 
   try {
     const { port } = await supervisor.start()
@@ -115,14 +138,14 @@ async function bootstrapRuntime(): Promise<void> {
       message: `正在等待 dsh web 就绪（端口 ${port}）…`
     })
   } catch (err) {
-    setStatus({
-      phase: 'error',
-      message: err instanceof Error ? err.message : String(err)
-    })
+    const message = err instanceof Error ? err.message : String(err)
+    logger.error(`运行时启动异常：${message}`)
+    setStatus({ phase: 'error', message })
   }
 }
 
 app.whenReady().then(() => {
+  logger.info('应用启动，开始引导运行时')
   registerIpcHandlers({ getRuntimeStatus: () => latestStatus })
   createMainWindow()
   void bootstrapRuntime()
@@ -141,10 +164,12 @@ app.on('window-all-closed', () => {
 })
 
 async function shutdown(): Promise<void> {
+  logger.info('正在停止 dsh web 子进程…')
   try {
     await supervisor.stop()
-  } catch {
-    // 退出路径尽力而为
+    logger.info('dsh web 已停止')
+  } catch (err) {
+    logger.warn(`停止 dsh web 异常：${err instanceof Error ? err.message : String(err)}`)
   }
 }
 
@@ -155,7 +180,9 @@ app.on('before-quit', (event) => {
   }
 })
 
-// 兜底：未捕获异常时也要尽量停掉 dsh 子进程
-process.on('uncaughtException', () => {
+// 兜底：未捕获异常先记日志再优雅退出，并停掉 dsh 子进程
+process.on('uncaughtException', (err) => {
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err)
+  logger.error(`未捕获异常：${detail}`)
   void shutdown().finally(() => process.exit(1))
 })

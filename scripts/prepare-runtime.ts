@@ -207,7 +207,8 @@ async function prepareDsh(): Promise<void> {
   await withRetry('dsh npm install', async () => {
     const r = spawnSync(
       'npm',
-      ['install', '--prefix', dshDir, `@deepseek-ai/dsh@${DSH_VERSION}`],
+      // --save-exact：向 dsh/package.json 写入精确版本，保证运行时可复现
+      ['install', '--save-exact', '--prefix', dshDir, `@deepseek-ai/dsh@${DSH_VERSION}`],
       { stdio: 'inherit' }
     )
     if (r.status !== 0) throw new Error(`npm install 失败（exit ${r.status}）`)
