@@ -12,7 +12,13 @@ extraResources:
   - from: resources/runtime
     to: runtime
     filter:
+      # 运行时只需可执行文件与 JS 资产：排除文档/ sourcemap / 测试与示例目录，
+      # 以及 dsh 目录下的 package-lock（安装期产物，运行时不需要）
       - "**/*"
+      - "!**/*.md"
+      - "!**/*.map"
+      - "!**/{test,tests,__tests__,docs,example,examples}/**"
+      - "!dsh/package-lock.json"
 asar: true
 asarUnpack: []
 mac:

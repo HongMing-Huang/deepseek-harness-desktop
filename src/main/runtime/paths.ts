@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync, type Dirent } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { homedir, arch as osArch, platform } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 
@@ -116,21 +117,32 @@ export function sideloadDshBinPath(version: string): string {
   return join(sideloadRoot(), version, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 }
 
-/** 启动清理：仅保留 keep 中的版本目录（current 指向 + lastKnownGoodDsh），其余删除 */
-export function cleanupSideloadRuntimes(keep: string[]): void {
+/**
+ * 启动清理：仅保留 keep 中的版本目录（current 指向 + lastKnownGoodDsh），
+ * 其余异步删除（rmSync 会阻塞主进程）。返回移除的目录数；
+ * 单个目录删除失败不阻塞其余清理。
+ */
+export async function cleanupSideloadRuntimes(keep: string[]): Promise<number> {
+  const root = sideloadRoot()
+  let entries: Dirent[]
   try {
-    const entries = readdirSync(sideloadRoot(), { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isDirectory() || keep.includes(entry.name)) continue
-      try {
-        rmSync(join(sideloadRoot(), entry.name), { recursive: true, force: true })
-      } catch {
-        // 单个版本清理失败不阻塞启动
-      }
-    }
+    entries = readdirSync(root, { withFileTypes: true })
   } catch {
-    // 侧载目录不存在：无需清理
+    return 0 // 侧载目录不存在：无需清理
   }
+  const results = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && !keep.includes(entry.name))
+      .map(async (entry) => {
+        try {
+          await rm(join(root, entry.name), { recursive: true, force: true })
+          return true
+        } catch {
+          return false // 单个版本清理失败不阻塞启动
+        }
+      })
+  )
+  return results.filter(Boolean).length
 }
 
 /** dsh 数据目录（$DSH_HOME），默认 ~/.dsh，尊重用户已有环境变量 */

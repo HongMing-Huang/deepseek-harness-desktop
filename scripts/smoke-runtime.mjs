@@ -7,11 +7,13 @@
  * 由 release.yml 在每个平台矩阵 job 的打包步骤后调用；也可本地执行
  * （前提：已跑过 npm run prepare:runtime）。
  *
- * 用法：node scripts/smoke-runtime.mjs [--port 3999] [--timeout-ms 45000]
+ * 用法：node scripts/smoke-runtime.mjs [--port 3999] [--timeout-ms 45000] [--dsh-home <dir>]
+ * 默认使用 mkdtemp 隔离的 DSH_HOME（不污染真实 ~/.dsh，结束后删除）；
+ * 显式传入 --dsh-home 时使用指定目录且不负责清理。
  */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { arch } from 'node:os'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { arch, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,9 +25,22 @@ function argValue(name, fallback) {
   const i = process.argv.indexOf(name)
   return i >= 0 && process.argv[i + 1] ? Number(process.argv[i + 1]) : fallback
 }
+function argString(name) {
+  const i = process.argv.indexOf(name)
+  return i >= 0 && typeof process.argv[i + 1] === 'string' && process.argv[i + 1].length > 0
+    ? process.argv[i + 1]
+    : null
+}
 const PORT = argValue('--port', 3999)
 const TIMEOUT_MS = argValue('--timeout-ms', 45_000)
 const GRACE_MS = 10_000
+
+/* DSH_HOME 隔离：默认 mkdtemp 临时目录；显式 --dsh-home 时不接管清理 */
+const explicitHome = argString('--dsh-home')
+const isolatedHome = explicitHome ?? mkdtempSync(join(tmpdir(), 'dsh-smoke-'))
+if (!explicitHome) {
+  console.log(`[smoke-runtime] 使用隔离 DSH_HOME：${isolatedHome}`)
+}
 
 /* ---------- 路径解析（与 src/main/runtime/paths.ts 目录约定一致） ---------- */
 const archDir = arch() === 'arm64' ? 'arm64' : 'x64'
@@ -52,7 +67,7 @@ function log(line) {
 /* ---------- 主流程 ---------- */
 const child = spawn(nodeBin, [dshBin, 'web', '--port', String(PORT)], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env }
+  env: { ...process.env, DSH_HOME: isolatedHome }
 })
 console.log(`[smoke-runtime] 已启动 dsh web（pid ${child.pid}，端口 ${PORT}，内嵌 node: ${archDir}）`)
 
@@ -61,19 +76,27 @@ child.stderr.on('data', log)
 
 const startedAt = Date.now()
 let childExit = null
+let childError = null
 child.on('exit', (code, signal) => {
   childExit = { code, signal }
 })
+child.on('error', (err) => {
+  // spawn 失败（如 ENOENT/权限）不触发 exit：结构化记录，探活循环据此失败
+  childError = err
+})
 
-/** 轮询探活：收到任意 HTTP 响应即成功 */
+/** 轮询探活：收到任意 HTTP 响应即成功（单次 fetch 3s 超时防悬挂） */
 async function waitUntilReady() {
   const url = `http://127.0.0.1:${PORT}/`
   while (Date.now() - startedAt < TIMEOUT_MS) {
+    if (childError) {
+      throw new Error(`dsh web 进程异常（spawn error）：${childError.message}`)
+    }
     if (childExit) {
       throw new Error(`dsh web 提前退出（code=${childExit.code} signal=${childExit.signal}）`)
     }
     try {
-      const res = await fetch(url, { redirect: 'manual' })
+      const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(3000) })
       console.log(`[smoke-runtime] 探活成功：HTTP ${res.status}（${url}）`)
       return res.status
     } catch {
@@ -86,7 +109,7 @@ async function waitUntilReady() {
 /** 优雅停止：SIGTERM，超时强杀 */
 function stopChild() {
   return new Promise((resolve) => {
-    if (childExit) return resolve()
+    if (childExit || childError) return resolve()
     const killer = setTimeout(() => {
       console.warn('[smoke-runtime] 优雅退出超时，SIGKILL 强杀')
       child.kill('SIGKILL')
@@ -113,5 +136,13 @@ try {
 } finally {
   await stopChild()
   console.log('[smoke-runtime] 子进程已停止')
+  // 隔离目录清理（显式传入的 --dsh-home 不接管）
+  if (!explicitHome) {
+    try {
+      rmSync(isolatedHome, { recursive: true, force: true })
+    } catch {
+      // 清理失败不影响冒烟结论
+    }
+  }
   process.exit(exitCode)
 }

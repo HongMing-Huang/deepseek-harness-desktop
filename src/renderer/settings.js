@@ -12,6 +12,9 @@
     modelSave: document.getElementById('modelSave'),
     modelFeedback: document.getElementById('modelFeedback'),
     updateCheckToggle: document.getElementById('updateCheckToggle'),
+    updateRepoInput: document.getElementById('updateRepoInput'),
+    updateRepoSave: document.getElementById('updateRepoSave'),
+    updateRepoFeedback: document.getElementById('updateRepoFeedback'),
     appVersion: document.getElementById('appVersion'),
     dshVersion: document.getElementById('dshVersion'),
     checkNowBtn: document.getElementById('checkNowBtn'),
@@ -60,6 +63,11 @@
 
     // 更新偏好与版本信息
     els.updateCheckToggle.checked = Boolean(state.preferences && state.preferences.updateCheckEnabled)
+    // 壳更新仓库回显（占位值 owner/dsh-desktop 表示未配置，输入框留空提示格式）
+    var repo = state.preferences && state.preferences.updateRepo
+    if (repo && repo !== 'owner/dsh-desktop') {
+      els.updateRepoInput.value = repo
+    }
     els.appVersion.textContent = state.versions.app ? 'v' + state.versions.app : '-'
     if (state.versions.dsh) {
       els.dshVersion.textContent =
@@ -128,6 +136,28 @@
       })
   }
 
+  /* 壳更新仓库：格式 owner/repo（GitHub 限制的字符集），经 ConfigSavePreferences 持久化 */
+  var REPO_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/
+
+  function saveUpdateRepo() {
+    var repo = (els.updateRepoInput.value || '').trim()
+    if (!REPO_RE.test(repo)) {
+      setFeedback(els.updateRepoFeedback, '格式应为 owner/repo（仅字母、数字、点、连字符、下划线）', 'error')
+      return
+    }
+    setBusy(els.updateRepoSave, true, '保存中…')
+    window.api
+      .savePreferences({ updateRepo: repo })
+      .then(function () {
+        setBusy(els.updateRepoSave, false)
+        setFeedback(els.updateRepoFeedback, '壳更新仓库已保存：' + repo, 'ok')
+      })
+      .catch(function () {
+        setBusy(els.updateRepoSave, false)
+        setFeedback(els.updateRepoFeedback, '仓库保存失败', 'error')
+      })
+  }
+
   function toggleUpdateCheck(enabled) {
     window.api
       .savePreferences({ updateCheckEnabled: enabled })
@@ -179,6 +209,10 @@
     })
     els.updateCheckToggle.addEventListener('change', function () {
       toggleUpdateCheck(els.updateCheckToggle.checked)
+    })
+    els.updateRepoSave.addEventListener('click', saveUpdateRepo)
+    els.updateRepoInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') saveUpdateRepo()
     })
     els.checkNowBtn.addEventListener('click', checkNow)
 

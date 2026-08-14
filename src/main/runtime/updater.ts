@@ -268,6 +268,9 @@ export class RuntimeUpdater {
       this.pointerSwitched = true
       broadcastOpProgress({ op: 'update', state: 'update', percent: 100, message: '正在切换运行时…' })
 
+      // 写指针后强制幂等 stop：清掉可能残留的旧进程（与手动重启竞态时，
+      // 旧进程存活会掩盖新版本未生效的事实，导致假更新成功）
+      await this.supervisor.stop()
       await this.supervisor.start()
       await this.waitForReady(READY_AFTER_SWITCH_TIMEOUT_MS)
       this.pointerSwitched = false
@@ -389,11 +392,18 @@ export class RuntimeUpdater {
     while (this.applying && Date.now() < deadline) {
       await sleep(200)
     }
+    if (this.applying) {
+      // 兑底：更新流程未在期限内收敛（如停止序列卡死），强制复位，
+      // 避免 before-quit 二次进入时被 updating 标志拖入死循环
+      logger.error('取消更新超时，强制复位更新状态')
+      this.applying = false
+    }
     // 指针已切但未验证就绪：回退，保证下次启动用旧版本
     if (this.pointerSwitched) {
       clearCurrentSideloadVersion()
       this.pointerSwitched = false
     }
+    this.applyAbort = null
     this.dispose()
   }
 

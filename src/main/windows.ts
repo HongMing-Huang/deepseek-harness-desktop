@@ -28,6 +28,8 @@ let mainWindow: BrowserWindow | null = null
 let dshWebView: WebContentsView | null = null
 let activityView: WebContentsView | null = null
 let sidebarVisible = true
+/** 当前 dsh web 监听端口（就绪后由 showDshWebView 解析；外链守卫比对用） */
+let currentDshPort: number | null = null
 
 /** 渲染页面地址：dev 态走 renderer dev server，打包态读 out/renderer */
 function pageUrl(page: string): string {
@@ -47,15 +49,32 @@ async function loadWindowPage(win: BrowserWindow, page: string): Promise<void> {
   }
 }
 
-/** 外链拦截：本机 dsh web 放行，其余交给系统浏览器（主窗口与 dshWebView 共用策略） */
+/**
+ * 外链拦截：仅本机 dsh web（hostname 严格等于 127.0.0.1/localhost 且端口
+ * 等于当前 dsh web 端口）放行；其余一律 openExternal + deny。
+ * 主窗口（splash 期）与 dshWebView 共用策略。
+ */
 function applyExternalLinkPolicy(webContents: Electron.WebContents): void {
   webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
+    if (isLocalDshWebUrl(url)) {
       return { action: 'allow' }
     }
     void shell.openExternal(url)
     return { action: 'deny' }
   })
+}
+
+/** URL 解析判定：前缀 startsWith 可被 `http://127.0.0.1.evil.com` 绕过，必须解析后逐项比对 */
+function isLocalDshWebUrl(url: string): boolean {
+  if (currentDshPort === null) return false
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:') return false
+    if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false
+    return parsed.port === String(currentDshPort)
+  } catch {
+    return false
+  }
 }
 
 /** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换双子视图布局） */
@@ -107,6 +126,16 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
   if (win.isDestroyed()) return
   mainWindow = win
 
+  // 记录当前 dsh web 端口（外链守卫严格比对用；非法 URL 时视为未知）
+  try {
+    const port = new URL(url).port
+    currentDshPort = port.length > 0 ? Number(port) : null
+  } catch {
+    currentDshPort = null
+  }
+
+  const content = win.contentView
+  // 视图可能因崩溃错误页被移除（showRuntimeErrorOverlay）：重建挂载即可恢复
   if (!dshWebView) {
     dshWebView = new WebContentsView({
       webPreferences: {
@@ -117,7 +146,9 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
       }
     })
     applyExternalLinkPolicy(dshWebView.webContents)
-    win.contentView.addChildView(dshWebView)
+  }
+  if (!content.children.includes(dshWebView)) {
+    content.addChildView(dshWebView)
   }
 
   if (!activityView) {
@@ -130,12 +161,29 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
         webviewTag: false
       }
     })
-    win.contentView.addChildView(activityView)
     void loadViewPage(activityView, 'activity.html')
+  }
+  if (sidebarVisible && !content.children.includes(activityView)) {
+    content.addChildView(activityView)
   }
 
   void dshWebView.webContents.loadURL(url)
   layoutMainViews()
+}
+
+/**
+ * 运行时就绪后意外退出：移除双子视图，露出主窗口自身 webContents
+ * 的 splash 错误卡（依赖广播可达，渲染层展示重试按钮）。
+ */
+export function showRuntimeErrorOverlay(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const content = mainWindow.contentView
+  if (dshWebView && content.children.includes(dshWebView)) {
+    content.removeChildView(dshWebView)
+  }
+  if (activityView && content.children.includes(activityView)) {
+    content.removeChildView(activityView)
+  }
 }
 
 /** 视图页面加载（dev server / 打包文件两种形态） */

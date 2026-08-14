@@ -8,9 +8,18 @@ import { logger } from '../logger'
 /**
  * 端口占用诊断与安全释放：
  * - inspectPort：lsof 列出监听指定端口的进程；
- * - repairPort：仅当占用者是残留的 dsh web 进程（pid 命中上次 pid 文件，
- *   或命令行包含 dsh bin.js 完整路径）时才终止；其余占用者只报告不碰。
+ * - repairPort：仅当占用者确认为残留的 dsh web 进程（命令行包含
+ *   dsh bin.js 完整路径；pid 命中 pid 文件仅作弱线索，必须叠加命令行
+ *   校验防 pid 复用误杀）时才终止；其余占用者只报告不碰。
  */
+
+/**
+ * 占用者是否可安全终止：命令行包含 dsh bin.js 完整路径是唯一强证据；
+ * pid 命中残留 pid 文件仅为弱线索（pid 可能被无关进程复用），不可单独采信。
+ */
+export function isDshOccupant(command: string, dshBin: string): boolean {
+  return command.length > 0 && dshBin.length > 0 && command.includes(dshBin)
+}
 
 const execFileAsync = promisify(execFile)
 
@@ -54,11 +63,16 @@ export async function repairPort(port: number): Promise<RepairPortResult> {
 
   for (const occ of inspect.occupants) {
     const command = await psCommand(occ.pid)
-    const isStaleDsh = stale !== null && occ.pid === stale.pid
-    const isDshByCommand = command.length > 0 && command.includes(dshBin)
-    if (isStaleDsh || isDshByCommand) {
+    const staleHint = stale !== null && occ.pid === stale.pid
+    if (isDshOccupant(command, dshBin)) {
       dshOccupants.push({ ...occ, command })
     } else {
+      if (staleHint) {
+        // pid 命中但命令行不含 dsh bin：大概率 pid 已被无关进程复用，绝不终止
+        logger.warn(
+          `pid ${occ.pid} 命中残留 pid 文件但命令行不含 dsh bin，按非 dsh 进程处理（疑似 pid 复用）`
+        )
+      }
       manualOccupants.push({ ...occ, command })
     }
   }

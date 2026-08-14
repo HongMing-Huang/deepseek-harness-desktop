@@ -22,7 +22,9 @@ import {
  *
  * 健壮性纪律：
  * - storages 目录可能尚不存在：先 watch 其父目录（DSH_HOME）等创建事件，出现后切换；
- * - 解析异常（坏 JSON / schema 不可识别）只 warn 一次并静默停用（UI 显示占位，绝不报错弹窗）；
+ * - DSH_HOME 也不存在等挂载失败：定时重试（默认每 2s，最多 5 分钟），窗口耗尽才停用；
+ * - 解析异常（坏 JSON / schema 不可识别）连续达到阈值才停用，单次失败保持监听
+ *   （半写文件是瞬态的）；停用后 UI 显示占位，绝不报错弹窗；
  * - history 采用 临时文件 + rename 原子写，读取失败从空历史开始。
  */
 
@@ -46,6 +48,21 @@ export interface TokenPipelineOptions {
 const DEBOUNCE_MS = 500
 const BROADCAST_THROTTLE_MS = 1_000
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
+/** watch 挂载失败重试间隔（DSH_HOME 尚未创建等瞬态场景） */
+const WATCH_RETRY_INTERVAL_MS = 2_000
+/** watch 挂载重试窗口：窗口耗尽仍失败才停用管道 */
+const WATCH_RETRY_WINDOW_MS = 5 * 60 * 1000
+
+/** 连续解析失败达到该阈值才停用（单次失败保持监听：半写/坏块文件是瞬态的） */
+export const PARSE_FAILURE_LIMIT = 5
+
+/**
+ * 解析失败后的动作：连续失败不足阈值保持监听（瞬态坏文件），
+ * 达到阈值才停用（schema 漂移 / 持久损坏）。
+ */
+export function parseFailureAction(consecutiveFailures: number): 'keep-watching' | 'disable' {
+  return consecutiveFailures >= PARSE_FAILURE_LIMIT ? 'disable' : 'keep-watching'
+}
 
 export class TokenPipeline {
   private readonly opts: TokenPipelineOptions
@@ -60,6 +77,12 @@ export class TokenPipeline {
 
   private debounceTimer: NodeJS.Timeout | null = null
   private broadcastTimer: NodeJS.Timeout | null = null
+  /** watch 挂载失败的重试定时器 */
+  private retryTimer: NodeJS.Timeout | null = null
+  /** 本次重试窗口的截止时间（0 = 尚无进行中的重试序列） */
+  private attachAttemptDeadline = 0
+  /** 连续解析失败计数（成功后清零） */
+  private parseFailures = 0
   private lastMtimeMs = 0
 
   private history: HistoryPoint[] = []
@@ -119,6 +142,8 @@ export class TokenPipeline {
     const storageDir = dirname(this.opts.projCachePath)
     try {
       this.watcher = watch(storageDir, { persistent: false }, () => this.scheduleRead())
+      // 挂载成功：重置重试窗口
+      this.attachAttemptDeadline = 0
     } catch {
       // storages 尚不存在：挂 DSH_HOME 层级，等目录创建事件
       const homeDir = dirname(storageDir)
@@ -135,9 +160,30 @@ export class TokenPipeline {
           }
         })
       } catch (err) {
-        this.disableOnce(`无法监听 DSH_HOME（${homeDir}）：${errorMessage(err)}`)
+        // DSH_HOME 也无法监听（目录未创建等瞬态场景）：定时重试而非永久停用
+        this.scheduleWatchRetry(`无法监听 DSH_HOME（${homeDir}）：${errorMessage(err)}`)
       }
     }
+  }
+
+  /** watch 挂载失败定时重试：窗口内反复尝试，窗口耗尽才停用管道 */
+  private scheduleWatchRetry(reason: string): void {
+    if (!this.running || this.disabled) return
+    if (this.attachAttemptDeadline === 0) {
+      this.attachAttemptDeadline = Date.now() + WATCH_RETRY_WINDOW_MS
+    }
+    if (Date.now() >= this.attachAttemptDeadline) {
+      this.disableOnce(
+        `${reason}，且重试窗口（${WATCH_RETRY_WINDOW_MS / 1000 / 60} 分钟）已耗尽，Token 管道停用`
+      )
+      return
+    }
+    logger.warn(`${reason}，${WATCH_RETRY_INTERVAL_MS / 1000}s 后重试挂载监听`)
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      this.attachWatcher()
+    }, WATCH_RETRY_INTERVAL_MS)
   }
 
   private detachWatcher(): void {
@@ -155,6 +201,10 @@ export class TokenPipeline {
     if (this.broadcastTimer) {
       clearTimeout(this.broadcastTimer)
       this.broadcastTimer = null
+    }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
     }
   }
 
@@ -211,10 +261,22 @@ export class TokenPipeline {
 
     const result = parseProjCache(raw)
     if (result === null) {
-      this.disableOnce('session_projcache 结构不可识别（schema 漂移或坏 JSON），Token 管道停用')
-      this.opts.onSample(this.payload(false))
+      // 单次解析失败视为瞬态（半写文件）：保持监听等下次变更；
+      // 连续达到阈值才判定 schema 漂移 / 持久损坏并停用
+      this.parseFailures += 1
+      if (parseFailureAction(this.parseFailures) === 'disable') {
+        this.disableOnce(
+          `session_projcache 连续 ${this.parseFailures} 次解析失败（schema 漂移或坏 JSON），Token 管道停用`
+        )
+        this.opts.onSample(this.payload(false))
+      } else {
+        logger.warn(
+          `session_projcache 解析失败（连续 ${this.parseFailures}/${PARSE_FAILURE_LIMIT} 次），保持监听`
+        )
+      }
       return
     }
+    this.parseFailures = 0
 
     this.aggregate = result.aggregate
     const total = totalTokensOf(result.aggregate.totals)

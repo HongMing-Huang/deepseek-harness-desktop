@@ -20,7 +20,7 @@ import {
   resolveRuntime
 } from './runtime/paths'
 import * as config from './config'
-import { createMainWindow, setupAppMenu, showDshWebView } from './windows'
+import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay } from './windows'
 import { logger } from './logger'
 import { TokenPipeline } from './token-pipeline'
 import * as plugins from './runtime/plugins'
@@ -38,6 +38,10 @@ const supervisor = new ProcessSupervisor()
 let updater: RuntimeUpdater | null = null
 let tokenPipeline: TokenPipeline | null = null
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
+/** 退出流程已发起（before-quit 二次进入直接 app.exit，防死循环） */
+let quitRequested = false
+/** 预期内重启进行中（手动重启/端口修复）：exit 事件不作崩溃处理 */
+let expectedRestart = false
 
 /** boot 各阶段映射的进度百分比（与 supervisor progress 事件对应） */
 const STAGE_PERCENT: Record<string, number> = {
@@ -71,6 +75,7 @@ function setStatus(status: RuntimeStatus): void {
  */
 function attachSupervisorListeners(): void {
   supervisor.on('ready', ({ port, url }) => {
+    expectedRestart = false
     logger.info(`dsh web 就绪：${url}`)
     setStatus({ phase: 'ready', port, url, message: 'dsh web 已就绪' })
     broadcastOpProgress({ op: 'boot', state: 'done', percent: 100, message: 'dsh web 已就绪' })
@@ -96,6 +101,7 @@ function attachSupervisorListeners(): void {
   })
 
   supervisor.on('error', ({ message, stderrTail }) => {
+    expectedRestart = false
     logger.error(`dsh web 启动失败：${message}`)
     const classification = classifyStartupError({ message, stderrTail })
     setStatus({
@@ -115,13 +121,23 @@ function attachSupervisorListeners(): void {
   supervisor.on('exit', ({ code, signal }) => {
     // 运行时退出即停止 Token 管道（不再产出采样）
     tokenPipeline?.stop()
-    // 仅在就绪后的意外退出时通知 UI（启动期退出已由 error 事件覆盖）
-    if (latestStatus.phase === 'ready') {
-      logger.warn(`dsh web 已退出（code=${code ?? 'null'}, signal=${signal ?? 'null'}）`)
+    // 仅就绪后的意外退出才作崩溃处理（启动期退出已由 error 事件覆盖；
+    // 更新热切换 / 手动重启 / 端口修复 / 退出流程中的 stop 属预期内停止）
+    const expected =
+      quitRequested || expectedRestart || Boolean(updater?.updating)
+    if (latestStatus.phase === 'ready' && !expected) {
+      const message = `dsh web 已退出（code=${code ?? 'null'}, signal=${signal ?? 'null'}）`
+      logger.warn(message)
+      // 分类兑底为 process-crash：错误卡提供重试 / 查看日志动作
+      const classification = classifyStartupError({ message })
       setStatus({
-        phase: 'stopped',
-        message: `dsh web 已退出（code=${code ?? 'null'}, signal=${signal ?? 'null'}）`
+        phase: 'error',
+        message,
+        port: supervisor.port ?? undefined,
+        classification
       })
+      // 移除双子视图，露出主窗口 splash 错误卡（依赖广播可达）
+      showRuntimeErrorOverlay()
     }
   })
 }
@@ -199,18 +215,30 @@ async function getDiagnostics(): Promise<DiagnosticsResult> {
 }
 
 async function restartRuntime(): Promise<RuntimeStatus> {
+  // 更新热切换进行中：重启会与指针切换竞态，拒绝并提示
+  if (updater?.updating) {
+    logger.warn('更新进行中，忽略手动重启请求')
+    return { ...latestStatus, message: '更新进行中，请稍候' }
+  }
   logger.info('手动重启 dsh web')
+  expectedRestart = true
   await supervisor.stop()
   await bootstrapRuntime()
   return latestStatus
 }
 
 async function handleRepairPort(port?: number): Promise<RepairPortResult> {
+  // 更新热切换进行中：修复会重启运行时，与指针切换竞态，拒绝并提示
+  if (updater?.updating) {
+    logger.warn('更新进行中，忽略端口修复请求')
+    return { ok: false, message: '更新进行中，请稍候' }
+  }
   const target = port ?? supervisor.port ?? latestStatus.port ?? 3080
   const result = await repairPort(target)
   if (result.ok) {
     logger.info(`端口修复成功：${result.message}`)
     // 修复成功后自动重启运行时（回到进度态）
+    expectedRestart = true
     await supervisor.stop()
     void bootstrapRuntime()
   } else {
@@ -321,7 +349,14 @@ app.whenReady().then(async () => {
   const keep = [currentSideload, preferences.lastKnownGoodDsh].filter(
     (v): v is string => typeof v === 'string' && v.length > 0
   )
-  cleanupSideloadRuntimes(keep)
+  // 异步清理（不阻塞主进程启动），完成后记日志；失败不阻断引导
+  void cleanupSideloadRuntimes(keep)
+    .then((removed) => {
+      if (removed > 0) logger.info(`启动清理：已移除 ${removed} 个过期侧载版本目录`)
+    })
+    .catch((err) =>
+      logger.warn(`启动清理异常：${err instanceof Error ? err.message : String(err)}`)
+    )
 
   // 更新器：晚于清理初始化，保证调度开始前目录已是受控状态
   updater = new RuntimeUpdater(supervisor)
@@ -368,8 +403,14 @@ async function shutdown(): Promise<void> {
 }
 
 app.on('before-quit', (event) => {
+  // 二次进入（shutdown 完成后的 app.quit()）：直接退出，防死循环
+  if (quitRequested) {
+    app.exit(0)
+    return
+  }
   const updateInFlight = updater !== null && updater.updating
   if (supervisor.running || updateInFlight) {
+    quitRequested = true
     event.preventDefault()
     // 更新中收到退出请求：取消安装并回退未验证指针，不阻塞退出
     void Promise.allSettled([shutdown(), updater ? updater.cancelForQuit() : Promise.resolve()]).finally(

@@ -10,15 +10,17 @@
  *
  * pnpm 首选 tgz 瘦身方案；任一步失败自动整体回退为下载 standalone 二进制。
  *
- * 特性：幂等（已存在则跳过）、下载带进度与重试。
+ * 特性：幂等（已存在且平台标记一致则跳过）、下载带进度与重试、完整性校验
+ * （Node tarball 对官方 SHASUMS256.txt，pnpm tgz 对 registry dist.integrity）。
  * 用法：
  *   npx tsx scripts/prepare-runtime.ts [--platform darwin|linux] [--arch arm64|x64] [--prune-others]
  *   --prune-others：删除非目标架构的 node/<other>/、pnpm/<other>/（dist 构建前瘦身）
  */
 
 import { spawnSync } from 'node:child_process'
-import { createWriteStream, existsSync } from 'node:fs'
-import { chmod, mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { createReadStream, createWriteStream, existsSync } from 'node:fs'
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir, arch as osArch, platform as osPlatform } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
@@ -167,6 +169,68 @@ function mb(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+// ── 平台元数据与完整性校验 ─────────────────────────────────────────
+
+/** 平台标记文件名：防本地交叉打包时误用旧目标组合的产物 */
+const PLATFORM_MARKER = '.platform'
+
+function platformTag(plat: NodePlatform, arch: Arch): string {
+  return `${plat}-${arch}`
+}
+
+/** 读取目录的平台标记（不存在/读取失败返回 null） */
+async function readPlatformMarker(dir: string): Promise<string | null> {
+  try {
+    return (await readFile(join(dir, PLATFORM_MARKER), 'utf-8')).trim()
+  } catch {
+    return null
+  }
+}
+
+/** 校验目录平台标记与目标一致；不一致（含缺失，如历史安装）时清空待重装 */
+async function ensurePlatformDir(dir: string, tag: string, label: string): Promise<void> {
+  if (!existsSync(dir)) return
+  const current = await readPlatformMarker(dir)
+  if (current === tag) return
+  log(`⚠ ${label} 平台标记不匹配（现值：${current ?? '(缺失)'}，目标：${tag}），重新安装`)
+  await rm(dir, { recursive: true, force: true })
+}
+
+async function writePlatformMarker(dir: string, tag: string): Promise<void> {
+  await writeFile(join(dir, PLATFORM_MARKER), `${tag}\n`, 'utf-8')
+}
+
+/** 计算文件哈希（hex 小写） */
+async function hashFile(path: string, algorithm: 'sha256' | 'sha512'): Promise<string> {
+  const hash = createHash(algorithm)
+  await pipeline(createReadStream(path), hash)
+  return hash.digest('hex')
+}
+
+/** 从官方 SHASUMS256.txt 中取指定文件的 sha256（未命中抛错） */
+async function fetchNodeShasum(nodeVersion: string, tarName: string): Promise<string> {
+  const res = await fetch(`https://nodejs.org/dist/${nodeVersion}/SHASUMS256.txt`)
+  if (!res.ok) throw new Error(`无法获取 SHASUMS256.txt：HTTP ${res.status}`)
+  const text = await res.text()
+  for (const line of text.split('\n')) {
+    const m = /^([0-9a-f]{64})\s+\*?(.+)$/.exec(line.trim())
+    if (m && m[2] === tarName) return m[1]
+  }
+  throw new Error(`SHASUMS256.txt 中未找到 ${tarName}`)
+}
+
+/** 从 npm registry 元数据取 pnpm tgz 的 dist.integrity（sha512-<base64>），返回 hex */
+async function fetchPnpmIntegrity(): Promise<string> {
+  const res = await fetch(`${NPM_REGISTRY}/pnpm/${PNPM_VERSION}`)
+  if (!res.ok) throw new Error(`无法获取 pnpm registry 元数据：HTTP ${res.status}`)
+  const meta = (await res.json()) as { dist?: { integrity?: string } }
+  const integrity = meta.dist?.integrity
+  if (!integrity || !integrity.startsWith('sha512-')) {
+    throw new Error('pnpm registry 元数据缺少 sha512 integrity')
+  }
+  return Buffer.from(integrity.slice('sha512-'.length), 'base64').toString('hex')
+}
+
 // ── Node LTS ────────────────────────────────────────────────────────
 
 interface NodeDistEntry {
@@ -189,7 +253,10 @@ async function prepareNode(nodeVersion: string, opts: CliOptions): Promise<void>
   const binPath = join(binDir, 'node')
   const tarName = `node-${nodeVersion}-${plat}-${arch}.tar.gz`
   const url = `https://nodejs.org/dist/${nodeVersion}/${tarName}`
+  const tag = platformTag(plat, arch)
 
+  // 幂等前提：平台标记一致（缺失/不一致则清空重装，防交叉打包嵌错二进制）
+  await ensurePlatformDir(binDir, tag, `node/${arch}`)
   if (existsSync(binPath)) {
     log(`✓ node ${nodeVersion} (${plat}-${arch}) 已存在，跳过`)
     return
@@ -199,7 +266,17 @@ async function prepareNode(nodeVersion: string, opts: CliOptions): Promise<void>
   const tmpDir = await mkdtemp(join(tmpdir(), 'dsh-node-'))
   const tarPath = join(tmpDir, tarName)
   try {
-    await withRetry(`Node ${plat}-${arch} 下载`, () => downloadFile(url, tarPath))
+    // 下载后按官方 SHASUMS256.txt 校验 sha256，失败即重试
+    await withRetry(`Node ${plat}-${arch} 下载校验`, async () => {
+      await downloadFile(url, tarPath)
+      const expected = await fetchNodeShasum(nodeVersion, tarName)
+      const actual = await hashFile(tarPath, 'sha256')
+      if (actual !== expected) {
+        throw new Error(
+          `sha256 校验失败：期望 ${expected.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…`
+        )
+      }
+    })
 
     // 用系统 tar 解包（macOS/Linux 自带）
     const r = spawnSync('tar', ['-xzf', tarPath, '-C', tmpDir], { stdio: 'inherit' })
@@ -209,6 +286,7 @@ async function prepareNode(nodeVersion: string, opts: CliOptions): Promise<void>
     const extracted = join(tmpDir, `node-${nodeVersion}-${plat}-${arch}`, 'bin', 'node')
     await rename(extracted, binPath)
     await chmod(binPath, 0o755)
+    await writePlatformMarker(binDir, tag)
     log(`✓ Node ${nodeVersion} (${plat}-${arch}) 就绪：${binPath}`)
   } finally {
     await rm(tmpDir, { recursive: true, force: true })
@@ -236,7 +314,10 @@ async function preparePnpm(opts: CliOptions): Promise<void> {
   const binDir = join(RUNTIME_DIR, 'pnpm', arch)
   const cjsPath = join(binDir, 'pnpm.cjs')
   const entryPath = join(binDir, 'pnpm')
+  const tag = platformTag(plat, arch)
 
+  // 幂等前提：平台标记一致（缺失/不一致则清空重装）
+  await ensurePlatformDir(binDir, tag, `pnpm/${arch}`)
   // 幂等：入口（shim 或 standalone）与 pnpm.cjs 均在位即视为就绪
   if (existsSync(entryPath) && existsSync(cjsPath)) {
     log(`✓ pnpm ${PNPM_VERSION} (${plat}-${arch}) 已存在，跳过`)
@@ -251,6 +332,7 @@ async function preparePnpm(opts: CliOptions): Promise<void> {
     // 覆盖同路径旧 standalone 二进制（同名文件，写入即完成替换）
     await writeFile(entryPath, pnpmShimContent(arch), 'utf-8')
     await chmod(entryPath, 0o755)
+    await writePlatformMarker(binDir, tag)
     log(`✓ pnpm ${PNPM_VERSION} (${plat}-${arch}) 瘦身就绪：shim + ${cjsPath}`)
     return
   } catch (err) {
@@ -264,16 +346,23 @@ async function preparePnpm(opts: CliOptions): Promise<void> {
   log(`↓ 下载 pnpm ${PNPM_VERSION} standalone (${plat}-${arch})…`)
   await withRetry(`pnpm ${plat}-${arch} standalone 下载`, () => downloadFile(url, entryPath))
   await chmod(entryPath, 0o755)
+  await writePlatformMarker(binDir, tag)
   log(`✓ pnpm ${PNPM_VERSION} (${plat}-${arch}) standalone 就绪：${entryPath}`)
 }
 
-/** 从 npm registry 下载 pnpm 包 tgz 并解出主程序 pnpm.cjs（dist/ 下，约 7-10MB） */
+/** 从 npm registry 下载 pnpm 包 tgz（按 dist.integrity 校验 sha512）并解出主程序 pnpm.cjs */
 async function installPnpmFromTgz(cjsPath: string): Promise<void> {
   const url = `${NPM_REGISTRY}/pnpm/-/pnpm-${PNPM_VERSION}.tgz`
   const tmpDir = await mkdtemp(join(tmpdir(), 'dsh-pnpm-'))
   const tarPath = join(tmpDir, 'pnpm.tgz')
   try {
     await downloadFile(url, tarPath)
+    // 完整性校验：registry 元数据 dist.integrity（sha512），失败抛错由外层重试
+    const expected = await fetchPnpmIntegrity()
+    const actual = await hashFile(tarPath, 'sha512')
+    if (actual !== expected) {
+      throw new Error(`pnpm tgz sha512 校验失败：期望 ${expected.slice(0, 12)}…，实际 ${actual.slice(0, 12)}…`)
+    }
     const r = spawnSync('tar', ['-xzf', tarPath, '-C', tmpDir], { stdio: 'inherit' })
     if (r.status !== 0) throw new Error('pnpm tgz 解包失败')
     // 10.x 包内主程序位于 package/dist/pnpm.cjs，兼容未来可能的 package/pnpm.cjs

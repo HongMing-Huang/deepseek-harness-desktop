@@ -261,17 +261,26 @@ function runPluginCommand(
       tail = (tail + d).slice(-3_000)
     }
     
-    // 时间驱动的平滑兜底进度（解析不到行进度时也能给 UI 反馈）：20% → 85%
+    // 单调进度门：ticker 与解析行共用，仅广播更高的 percent，
+    // 防止时间兑底 ticker 回退覆盖已广播的行进度（无 percent 的消息行照发）
+    let lastPercent = 0
+    const broadcastProgress = (percent: number | undefined, message: string): void => {
+      if (percent !== undefined) {
+        if (percent <= lastPercent) return
+        lastPercent = percent
+      }
+      broadcastOpProgress({ op, state: 'update', percent, message })
+    }
+    
+    // 时间驱动的平滑兑底进度（解析不到行进度时也能给 UI 反馈）：20% → 85%
     let fallbackPercent = 20
     const ticker = setInterval(() => {
       if (fallbackPercent < 85) {
         fallbackPercent += 1
-        broadcastOpProgress({
-          op,
-          state: 'update',
-          percent: fallbackPercent,
-          message: `${action === 'add' ? '安装' : '卸载'}进行中（pnpm 运行 ${fallbackPercent}%）`
-        })
+        broadcastProgress(
+          fallbackPercent,
+          `${action === 'add' ? '安装' : '卸载'}进行中（pnpm 运行 ${fallbackPercent}%）`
+        )
       }
     }, 1_200)
     
@@ -285,13 +294,13 @@ function runPluginCommand(
       feed(d)
       const { lines, rest } = splitProgressChunk(restOut + d)
       restOut = rest
-      emitParsedLines(lines, op)
+      emitParsedLines(lines, broadcastProgress)
     })
     child.stderr?.on('data', (d: string) => {
       feed(d)
       const { lines, rest } = splitProgressChunk(restErr + d)
       restErr = rest
-      emitParsedLines(lines, op)
+      emitParsedLines(lines, broadcastProgress)
     })
 
     const cleanup = (): void => clearInterval(ticker)
@@ -312,12 +321,15 @@ function runPluginCommand(
   })
 }
 
-/** 逐行解析并广播（解析不到则静默，由时间兜底进度覆盖） */
-function emitParsedLines(lines: string[], op: 'plugin-install' | 'plugin-remove'): void {
+/** 逐行解析并广播（解析不到则静默，由时间兑底进度覆盖；经单调门控防回退） */
+function emitParsedLines(
+  lines: string[],
+  broadcast: (percent: number | undefined, message: string) => void
+): void {
   for (const line of lines) {
     const parsed = parsePluginProgressLine(line)
     if (parsed) {
-      broadcastOpProgress({ op, state: 'update', percent: parsed.percent, message: parsed.message })
+      broadcast(parsed.percent, parsed.message)
     }
   }
 }
