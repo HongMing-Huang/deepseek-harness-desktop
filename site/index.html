@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSH Desktop — DeepSeek Harness 的桌面形态</title>
+  <meta name="description" content="DSH Desktop：DeepSeek Harness 的官方级桌面形态——下载即用，零环境依赖。内嵌 Node / pnpm / dsh 运行时，macOS 与 Linux 双平台安装包。" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+  <!-- ======== 顶部导航 ======== -->
+  <header class="nav">
+    <a class="nav-brand" href="#top">
+      <img class="nav-logo" src="favicon.png" alt="DSH Desktop logo" width="30" height="30" />
+      <span>DSH&nbsp;Desktop</span>
+    </a>
+    <nav class="nav-links" aria-label="页面导航">
+      <a href="#features">功能</a>
+      <a href="#install">安装</a>
+      <a href="#plugins">插件</a>
+      <a href="#faq">FAQ</a>
+      <a class="nav-gh" data-github-link href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+        </svg>
+        <span>GitHub</span>
+      </a>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <!-- ======== Hero：深海区 ======== -->
+    <section class="hero">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow-a" aria-hidden="true"></div>
+      <div class="hero-glow hero-glow-b" aria-hidden="true"></div>
+
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <p class="kicker kicker-dark">// deepseek harness · desktop edition</p>
+          <h1>DSH Desktop</h1>
+          <p class="hero-tagline">
+            DeepSeek Harness 的官方级桌面形态——<strong>下载即用，零环境依赖</strong>。
+          </p>
+          <p class="hero-sub">
+            内嵌 Node、pnpm 与 dsh 运行时，无需预装任何命令行工具；打开即得完整的 Harness Web 工作台。
+          </p>
+
+          <!-- 下载区：app.js 按访问平台渲染推荐按钮 -->
+          <div class="dl-zone" id="dl-zone">
+            <div class="dl-primary" id="dl-primary" aria-live="polite"></div>
+            <div class="dl-others" id="dl-others"></div>
+            <a class="dl-all" data-github-releases href="#" target="_blank" rel="noopener">
+              查看全部版本与校验清单
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5.72 3.28a.75.75 0 0 0-1.06 1.06L8.38 9.5l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 9.5 5.72 5.22ZM11.5 3.75a.75.75 0 0 0 0 1.5h.5v6.5h-.5a.75.75 0 0 0 0 1.5h2.25a.75.75 0 0 0 0-1.5h-.25v-7c0-.55-.45-1-1-1h-1Z"/></svg>
+            </a>
+            <p class="dl-hint" id="dl-hint" hidden></p>
+          </div>
+
+          <ul class="hero-meta">
+            <li><span class="dot"></span>未签名应用 · 首次打开需放行</li>
+            <li><span class="dot"></span>macOS dmg + Linux deb / AppImage</li>
+            <li><span class="dot"></span>数据独立存放于 ~/.dsh</li>
+          </ul>
+        </div>
+
+        <div class="hero-figure" aria-hidden="true">
+          <img src="assets/whale-hero.png" alt="" class="whale" width="520" height="520" />
+          <div class="whale-ring whale-ring-1"></div>
+          <div class="whale-ring whale-ring-2"></div>
+        </div>
+      </div>
+
+      <div class="hero-scanline" aria-hidden="true">
+        <span>sonar: ok</span><span>runtime: bundled</span><span>dsh web: 127.0.0.1</span><span>updates: dual-track</span>
+      </div>
+    </section>
+
+    <!-- ======== 功能特性 ======== -->
+    <section class="section" id="features">
+      <div class="section-head">
+        <p class="kicker">// features</p>
+        <h2>一台完整的 Harness 工作台，装进一个 App</h2>
+        <p class="section-sub">从运行时到插件生态，全部开箱即用。</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">01</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9l2.5 2.5L14 7"/></svg>
+          </div>
+          <h3>零依赖内嵌运行时</h3>
+          <p>Node、pnpm、dsh 全部内置并随包分发。不碰系统环境，不装全局包，克隆式安装——删掉 App 即彻底卸载。</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">02</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+          <h3>双轨自动更新</h3>
+          <p>应用壳更新与 dsh 运行时热更互不干扰：升级 dsh 不动你的配置与插件，回退也只是点一下的事。</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">03</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6l2 2h8v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M8 13h8M8 16.5h5"/></svg>
+          </div>
+          <h3>插件市场</h3>
+          <p>搜索、安装、进度反馈全部图形化。社区插件一键装进沙箱目录，卸载干净无残留。</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">04</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M6 17V9M11 17V5M16 17v-7M21 17V8"/></svg>
+          </div>
+          <h3>Token 用量活动图</h3>
+          <p>按日聚合的消耗曲线与任务级明细，成本花在哪里一目了然，配额心里有数。</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">05</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L3 18v3h3l5.7-5.7a4.5 4.5 0 0 0 6-6L14 13l-3-3 3.7-3.7Z"/></svg>
+          </div>
+          <h3>一键错误诊断与端口修复</h3>
+          <p>进程起不来、端口被占、运行时缺件——诊断面板给出原因与修复动作，不用翻日志。</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">06</span>
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="14" height="11" rx="2"/><path d="M6.5 19h6M9 16v3M16 8h6v8h-6"/></svg>
+          </div>
+          <h3>macOS + Linux 双平台</h3>
+          <p>Apple Silicon 与 Intel 的 dmg，x64 与 arm64 的 deb / AppImage，四组合安装包逐架构瘦身。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ======== 安装引导 ======== -->
+    <section class="section section-tinted" id="install">
+      <div class="section-head">
+        <p class="kicker">// install</p>
+        <h2>三分钟装好，不需要终端基础</h2>
+        <p class="section-sub">文件名中的 <code>arm64</code> / <code>x64</code> 请按你的 CPU 选择。</p>
+      </div>
+
+      <div class="install-grid">
+        <div class="install-block">
+          <div class="install-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c-2 4-7 4.5-7 10a7 7 0 0 0 14 0c0-5.5-5-6-7-10Z"/><path d="M12 20a4 4 0 0 1-4-4c0-2.5 2-3.5 4-6 2 2.5 4 3.5 4 6a4 4 0 0 1-4 4Z"/></svg>
+            <h3>macOS</h3>
+          </div>
+          <div class="terminal">
+            <div class="terminal-bar"><i></i><i></i><i></i><span>dmg — 拖拽安装</span></div>
+            <pre><code><span class="c"># 1. 下载 dmg，双击打开，把 DSH Desktop 拖入 Applications</span>
+
+<span class="c"># 2. 应用未签名：首次打开请「右键 → 打开」确认，</span>
+<span class="c">#    或到 系统设置 → 隐私与安全性 → 仍要打开</span>
+
+<span class="c"># 3.（可选）校验安装包完整性</span>
+<span class="c">#    与 Release 附件 SHASUMS256.txt 逐行比对</span>
+<span class="cmd">shasum -a 256</span> dsh-desktop-mac-arm64.dmg</code></pre>
+          </div>
+          <p class="install-note">Apple Silicon 选 <code>*-mac-arm64.dmg</code>，Intel Mac 选 <code>*-mac-x64.dmg</code>。</p>
+        </div>
+
+        <div class="install-block">
+          <div class="install-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6l1 3h4v15H4V5h4l1-3Z"/><path d="M9.5 12.5 12 15l4-4.5"/></svg>
+            <h3>Linux</h3>
+          </div>
+          <div class="terminal">
+            <div class="terminal-bar"><i></i><i></i><i></i><span>shell — deb / AppImage</span></div>
+            <pre><code><span class="c"># Debian / Ubuntu（推荐，自动处理桌面项与依赖）</span>
+<span class="cmd">sudo apt install</span> ./dsh-desktop-linux-x64.deb
+
+<span class="c"># 任意发行版：AppImage</span>
+<span class="cmd">chmod +x</span> dsh-desktop-linux-x64.AppImage
+<span class="cmd">./</span>dsh-desktop-linux-x64.AppImage
+
+<span class="c"># AppImage 需要 FUSE（缺失时）：Ubuntu 22.04+</span>
+<span class="cmd">sudo apt install</span> libfuse2</code></pre>
+          </div>
+          <p class="install-note">ARM 设备（如树莓派 / ARM 服务器）请选 <code>*-linux-arm64.*</code> 产物。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== 插件生态预览 ======== -->
+    <section class="section" id="plugins">
+      <div class="section-head">
+        <p class="kicker">// ecosystem</p>
+        <h2>插件生态：先把玩的冲动留给你</h2>
+        <p class="section-sub">以下为社区精选预览，兼容性以实际为准；完整目录见应用内插件市场。</p>
+      </div>
+
+      <div class="plugin-grid">
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Web Search</h3><span class="tag tag-hot">热门</span></div>
+          <p>联网检索并带回带来源引用的答案。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Browser Pilot</h3><span class="tag tag-new">新上架</span></div>
+          <p>浏览器自动化：打开页面、读取内容、填表提交。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Git Mate</h3><span class="tag tag-hot">热门</span></div>
+          <p>提交信息生成、变更摘要与 PR 描述初稿。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Doc QA</h3><span class="tag">精选</span></div>
+          <p>指向本地文档目录，摘要、比对、逐段追问。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Terminal Pro</h3><span class="tag">精选</span></div>
+          <p>解释终端报错并给出可复制的修复命令。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Chart Sense</h3><span class="tag">精选</span></div>
+          <p>把 CSV 与日志变成图表和一句话结论。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Test Forge</h3><span class="tag tag-new">新上架</span></div>
+          <p>按改动差异生成测试用例并跑通断言。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+        <article class="plugin-card">
+          <div class="plugin-head"><h3>Lint Guard</h3><span class="tag">精选</span></div>
+          <p>代码规范检查、自动修复与提交前门禁。</p>
+          <span class="plugin-src">社区</span>
+        </article>
+      </div>
+      <p class="plugin-disclaimer">插件条目为静态预览，版本兼容性以应用内插件市场实际展示为准。</p>
+    </section>
+
+    <!-- ======== FAQ ======== -->
+    <section class="section section-tinted" id="faq">
+      <div class="section-head">
+        <p class="kicker">// faq</p>
+        <h2>常见问题</h2>
+      </div>
+
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary>Gatekeeper 提示「无法验证开发者」怎么办？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
+          <div class="faq-body">
+            <p>应用当前未做签名与公证，这是正常现象。两种放行方式任选其一：</p>
+            <ul>
+              <li>在「应用程序」中<b>右键 → 打开 → 再点「打开」</b>（只需一次）；</li>
+              <li>或先双击，被拦截后到<b>系统设置 → 隐私与安全性</b>，底部点「仍要打开」。</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>我的数据（配置、会话、插件）存在哪里？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
+          <div class="faq-body">
+            <p>全部位于用户目录下的 <code>~/.dsh</code>，与 App 安装位置分离：升级、重装甚至卸载应用都不会动它；不再需要时手动删除该目录即可彻底清理。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>如何回退 dsh 版本？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
+          <div class="faq-body">
+            <p>两种方式：</p>
+            <ul>
+              <li>在「设置 → 运行时」里选择历史版本回退；</li>
+              <li>或删除侧载目录，应用会自动回退到随包内嵌的 dsh 版本。</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>与官方 deepseek-harness 如何保持同步？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
+          <div class="faq-body">
+            <p>仓库每 6 小时自动检查 npm 上 <code>@deepseek-ai/dsh</code> 的新版本，检测到更新会自动提交一个同步 PR，<b>人工验证后才会合并发版</b>——不做任何静默升级。</p>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======== 页脚 ======== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="favicon.png" alt="DSH Desktop logo" width="26" height="26" />
+        <span>DSH Desktop</span>
+      </div>
+
+      <div class="footer-links">
+        <a data-github-link href="#" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a data-github-releases href="#" target="_blank" rel="noopener">Releases</a>
+        <a href="#faq">常见问题</a>
+      </div>
+
+      <div class="footer-meta">
+        <span class="version-badge" id="version-badge" hidden>
+          <span class="vb-label">latest</span>
+          <span id="version-tag">v—</span>
+          <span class="vb-dot"></span>
+          <span id="version-date">—</span>
+        </span>
+      </div>
+
+      <p class="footer-disclaimer">
+        DSH Desktop 是 DeepSeek Harness 的桌面社区版，非 DeepSeek 官方产品；DeepSeek 及相关标识归其权利人所有。
+        代码以 MIT 许可开源。
+      </p>
+    </div>
+  </footer>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>
