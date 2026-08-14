@@ -308,8 +308,8 @@ function buildIpcContext(): IpcContext {
        结果同步给托盘发系统通知（并发锁拒绝除外） */
     listPlugins: () => plugins.listInstalledPlugins().then((items) => ({ plugins: items })),
     getPluginCatalog: () => plugins.getPluginCatalog().then((catalog) => ({ catalog })),
-    installPlugin: async (name: string, version?: string) => {
-      const result = await plugins.installPlugin(name, version)
+    installPlugin: async (name: string, version?: string, spec?: string) => {
+      const result = await plugins.installPlugin(name, version, spec)
       trayController?.notifyPluginResult('install', name, result.ok, result.message)
       return result
     },

@@ -1,14 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
 import semver from 'semver'
+import YAML from 'yaml'
 import { buildChildEnv, dshHome, resolveRuntime } from './paths'
 import { parsePluginProgressLine, splitProgressChunk } from './plugin-progress'
 import { broadcastOpProgress } from '../ipc'
 import { logger } from '../logger'
-import type { PluginEntry, PluginHealthItem, PluginHealthResult } from '../../shared/ipc'
+import type {
+  PluginCatalogEntry,
+  PluginEntry,
+  PluginHealthItem,
+  PluginHealthResult
+} from '../../shared/ipc'
 
 /**
  * dsh 插件管理（web profile）：
@@ -20,16 +27,7 @@ import type { PluginEntry, PluginHealthItem, PluginHealthResult } from '../../sh
  * - 并发保护：同一时刻仅允许一个插件操作，后来者直接拒绝。
  */
 
-/** 目录条目（在 PluginEntry 基础上追加来源与分类元数据） */
-export interface PluginCatalogEntry extends PluginEntry {
-  /** 版本固定（pin），空串表示未锁定 */
-  version: string
-  /** 项目页 / npm 页 */
-  repo?: string
-  category?: string
-  /** verified = npm 元数据可追溯仓库；community = 仅 npm 分发 */
-  compatibility?: 'verified' | 'community'
-}
+/** 目录条目类型与解析来源字段见 shared/ipc.ts 的 PluginCatalogEntry */
 
 interface CatalogFile {
   plugins?: Array<{
@@ -39,6 +37,8 @@ interface CatalogFile {
     repo?: unknown
     category?: unknown
     compatibility?: unknown
+    source?: unknown
+    installSpec?: unknown
   }>
 }
 
@@ -71,10 +71,10 @@ export async function listInstalledPlugins(): Promise<PluginEntry[]> {
   return entries
 }
 
-/** 读取已装包的 description（读不到返回空串，不阻塞列表） */
+/** 读取已装包的 description（scoped 包走 @scope/name 两级目录；读不到返回空串，不阻塞列表） */
 async function readPackageDescription(name: string): Promise<string> {
   try {
-    const raw = await readFile(join(profileDir(), 'node_modules', name, 'package.json'), 'utf-8')
+    const raw = await readFile(join(nodeModulesPackageDir(name), 'package.json'), 'utf-8')
     const pkg = JSON.parse(raw) as { description?: unknown }
     return typeof pkg.description === 'string' ? pkg.description : ''
   } catch {
@@ -109,6 +109,11 @@ export async function getPluginCatalog(): Promise<PluginCatalogEntry[]> {
           compatibility:
             p.compatibility === 'verified' || p.compatibility === 'community'
               ? p.compatibility
+              : undefined,
+          source: p.source === 'github' ? 'github' : 'npm',
+          installSpec:
+            p.source === 'github' && typeof p.installSpec === 'string' && p.installSpec.length > 0
+              ? p.installSpec
               : undefined
         })
       }
@@ -148,33 +153,111 @@ function specFor(name: string, version?: string): string {
 }
 
 /**
+ * 安装规格解析（纯函数，可单测）：
+ * - spec 非空 = GitHub 直装：仅接受 `git+https://github.com/<owner>/<repo>.git` 或
+ *   `github:<owner>/<repo>`（可带 `#<ref>` 提交/分支 pin），其余一律拒绝——
+ *   spawn 参数不经 shell，但仍做白名单校验防目录注入与杂项 URL；
+ * - spec 为空 = npm 语义（name@version 或裸名 latest）。
+ */
+export function resolveInstallSpec(name: string, version?: string, spec?: string): string {
+  const trimmed = (spec ?? '').trim()
+  if (trimmed.length === 0) {
+    return specFor(name, version)
+  }
+  const gitSpecPattern = /^(git\+https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.git|github:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)(#[A-Za-z0-9][A-Za-z0-9_.~/-]*)?$/
+  if (!gitSpecPattern.test(trimmed)) {
+    throw new Error(`插件 ${name} 的 GitHub 直装规格无效（仅接受 github.com 的 git 规格）`)
+  }
+  return trimmed
+}
+
+/** node_modules 内包目录（scoped 包为 @scope/name 两级） */
+function nodeModulesPackageDir(name: string): string {
+  return join(profileDir(), 'node_modules', ...name.split('/'))
+}
+
+/* ── GitHub 直装：allowBuilds 预放行 ── */
+
+/**
+ * 把包名写入 profile 的 pnpm-workspace.yaml `allowBuilds`（不存在则补键，已存在则幂等）。
+ * 官方要求：git 托管插件安装时 pnpm 默认拦截其 prepare 构建脚本（ERR_PNPM_IGNORED_BUILDS），
+ * dsh 的指引即「把 pnpm 打印的 key 加入 allowBuilds 后重跑」——这里按官方指引自动化。
+ * - 文件缺失：以 profile 模板最小形态创建；
+ * - 解析失败：文本追加 allowBuilds 键（保持可恢复，不覆盖原文件）。
+ */
+export function ensureAllowBuilds(packageName: string): { ok: boolean; message?: string } {
+  const file = join(profileDir(), 'pnpm-workspace.yaml')
+  const fallbackKey = 'allowBuilds:\n  - ' + packageName + '\n'
+  try {
+    if (!existsSync(file)) {
+      writeFileSync(file, 'packages:\n  - .\n\nnodeLinker: hoisted\n\n' + fallbackKey, 'utf-8')
+      return { ok: true }
+    }
+    const raw = readFileSync(file, 'utf-8')
+    const doc = YAML.parse(raw) as Record<string, unknown> | null
+    if (doc && typeof doc === 'object') {
+      const list = Array.isArray(doc['allowBuilds']) ? (doc['allowBuilds'] as unknown[]) : []
+      if (!list.some((v) => v === packageName)) {
+        list.push(packageName)
+        doc['allowBuilds'] = list
+      }
+      writeFileSync(file, YAML.stringify(doc), 'utf-8')
+      return { ok: true }
+    }
+    writeFileSync(file, raw + '\n' + fallbackKey, 'utf-8')
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, message: `更新 allowBuilds 失败：${err instanceof Error ? err.message : String(err)}` }
+  }
+}
+
+/**
  * 执行一次插件安装：全程 OpProgress 广播；
+ * spec 提供时按 GitHub 直装规格（git+https…@pin）安装，否则 npm name@version；
  * 成功返回 {ok:true, message 含“重启生效”提示}。
  */
-export async function installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }> {
-  const spec = specFor(name, version)
+export async function installPlugin(
+  name: string,
+  version?: string,
+  spec?: string
+): Promise<{ ok: boolean; message?: string }> {
+  let target: string
+  try {
+    target = resolveInstallSpec(name, version, spec)
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) }
+  }
   const op = 'plugin-install' as const
   try {
-    ensureIdle('install', spec)
+    ensureIdle('install', name)
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : String(err) }
   }
 
-  logger.info(`插件安装开始：${spec}`)
-  broadcastOpProgress({ op, state: 'start', message: `正在安装 ${spec}…` })
+  // GitHub 直装：官方要求先放行其 prepare 构建脚本（pnpm allowBuilds），否则必失败
+  if (spec && spec.trim().length > 0) {
+    const allowed = ensureAllowBuilds(name)
+    if (!allowed.ok) {
+      clearOperation()
+      return { ok: false, message: allowed.message }
+    }
+  }
+
+  logger.info(`插件安装开始：${target}`)
+  broadcastOpProgress({ op, state: 'start', message: `正在安装 ${name}…` })
   try {
-    await runPluginCommand('add', spec, op)
-    logger.info(`插件安装完成：${spec}`)
+    await runPluginCommand('add', target, op)
+    logger.info(`插件安装完成：${target}`)
     broadcastOpProgress({
       op,
       state: 'done',
       percent: 100,
-      message: `${spec} 安装完成，重启运行时后生效`
+      message: `${name} 安装完成，重启运行时后生效`
     })
-    return { ok: true, message: '安装完成，重启运行时后生效' }
+    return { ok: true, message: `${name} 安装完成，重启运行时后生效` }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`插件安装失败：${spec}：${message}`)
+    logger.warn(`插件安装失败：${target}：${message}`)
     broadcastOpProgress({ op, state: 'error', message })
     return { ok: false, message }
   } finally {
@@ -247,7 +330,7 @@ export async function checkPluginsHealth(): Promise<PluginHealthResult> {
   for (const plugin of installed) {
     let raw: string | null = null
     try {
-      raw = await readFile(join(profileDir(), 'node_modules', plugin.name, 'package.json'), 'utf-8')
+      raw = await readFile(join(nodeModulesPackageDir(plugin.name), 'package.json'), 'utf-8')
     } catch {
       raw = null
     }
@@ -308,6 +391,26 @@ export async function updateAllPlugins(): Promise<{ ok: boolean; message?: strin
     ensureIdle('update', '全部插件')
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : String(err) }
+  }
+
+  // git 直装插件在 update 时同样会被 pnpm 拦截构建：先按目录来源统一预放行
+  try {
+    const [installed, catalog] = await Promise.all([listInstalledPlugins(), getPluginCatalog()])
+    const githubNames = new Set(
+      catalog.filter((c) => c.source === 'github').map((c) => c.name)
+    )
+    for (const plugin of installed) {
+      if (githubNames.has(plugin.name)) {
+        const allowed = ensureAllowBuilds(plugin.name)
+        if (!allowed.ok) {
+          clearOperation()
+          return { ok: false, message: allowed.message }
+        }
+      }
+    }
+  } catch (err) {
+    clearOperation()
+    return { ok: false, message: `预放行检查失败：${err instanceof Error ? err.message : String(err)}` }
   }
 
   logger.info('插件全量更新开始')

@@ -41,8 +41,8 @@ const api: DeepseekApi = {
   /* 插件：handler 由插件管理阶段实现 */
   listPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsList),
   getPluginCatalog: () => ipcRenderer.invoke(IpcChannels.PluginsCatalog),
-  installPlugin: (name: string, version?: string) =>
-    ipcRenderer.invoke(IpcChannels.PluginsInstall, name, version),
+  installPlugin: (name: string, version?: string, spec?: string) =>
+    ipcRenderer.invoke(IpcChannels.PluginsInstall, name, version, spec),
   removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
   checkPluginsHealth: () => ipcRenderer.invoke(IpcChannels.PluginsHealth),
   updateAllPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsUpdateAll),

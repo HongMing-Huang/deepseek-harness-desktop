@@ -235,6 +235,21 @@ export interface PluginEntry {
   description?: string
 }
 
+/** 插件目录条目（renderer 视图：在 PluginEntry 基础上追加来源与分类元数据） */
+export interface PluginCatalogEntry extends PluginEntry {
+  /** 版本固定（pin），空串表示未锁定 */
+  version: string
+  /** 项目页 / npm 页 */
+  repo?: string
+  category?: string
+  /** verified = npm 元数据可追溯仓库；community = 仅 npm 分发或仅源码 */
+  compatibility?: 'verified' | 'community'
+  /** 分发来源：npm（默认）= registry 安装；github = 仅源码，按 installSpec 直装 */
+  source?: 'npm' | 'github'
+  /** GitHub 直装规格（git+https URL，pin 到验证时提交；仅 source=github 时存在） */
+  installSpec?: string
+}
+
 /* ───────────────────────── 会话中心 ───────────────────────── */
 
 /** 工作区（Trae Workspace 风格项目卡片数据源，镜像官方 workspace.view 结构） */
@@ -360,8 +375,12 @@ export interface DeepseekApi {
 
   /* 插件（handler 由插件管理阶段实现） */
   listPlugins(): Promise<{ plugins: PluginEntry[] }>
-  getPluginCatalog(): Promise<{ catalog: PluginEntry[] }>
-  installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }>
+  getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
+  installPlugin(
+    name: string,
+    version?: string,
+    spec?: string
+  ): Promise<{ ok: boolean; message?: string }>
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
   checkPluginsHealth(): Promise<PluginHealthResult>
   updateAllPlugins(): Promise<{ ok: boolean; message?: string }>

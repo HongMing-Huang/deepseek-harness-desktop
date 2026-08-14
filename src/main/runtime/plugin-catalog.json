@@ -1,5 +1,5 @@
 {
-  "comment": "社区插件目录：候选来自 awesome-dsh-plugins 雷达（github.com/AdamPlatin123/awesome-dsh-plugins），全部条目均经 registry.npmjs.org 逐个验证真实存在并锁定（pin）验证时的 latest 版本；pin 随上游发布定期刷新。compatibility 语义：verified = npm 元数据可追溯到明确 GitHub 仓库；community = 仅 npm 分发、无仓库指向。收录 ≠ 官方背书，兼容性以实际为准。",
+  "comment": "社区插件目录：候选来自 awesome-dsh-plugins 雷达（github.com/AdamPlatin123/awesome-dsh-plugins），全部条目均经 registry.npmjs.org 或 GitHub 仓库逐个验证真实存在并锁定（pin）验证时的版本/提交。source 语义：npm = npm registry 分发（version 为 pin 的 latest 版本）；github = 仅源码分发、经 `dsh plugin add <git 直装规格>` 安装（installSpec 为 git+https URL，pin 到验证时的提交）。compatibility 语义：verified = npm 元数据可追溯到明确 GitHub 仓库；community = 非 npm 分发或仅源码。收录 ≠ 官方背书，兼容性以实际为准。",
   "plugins": [
     {
       "name": "dsh-message-edit",
@@ -168,6 +168,80 @@
       "repo": "https://github.com/RealAlexandreAI/dsh-atuin",
       "category": "记忆增强",
       "compatibility": "verified"
+    },
+    {
+      "name": "dsh-better-sidebar",
+      "version": "0.12.1",
+      "description": "VSCode 式右侧工作台：文件浏览/编辑、终端、Git、浏览器等可扩展 Tab",
+      "repo": "https://github.com/omdsh-dev/DSH-better-sidebar",
+      "category": "界面增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "@zseven-w/dsh-openpencil",
+      "version": "0.1.0-rc.1",
+      "description": "设计稿多帧预览与交互画布：精确还原、帧比对与标注",
+      "repo": "https://github.com/ZSeven-W/dsh-openpencil",
+      "category": "视觉能力",
+      "compatibility": "verified"
+    },
+    {
+      "name": "@linxin666/dsh-web-ui-all",
+      "version": "0.1.12",
+      "description": "dsh-web-ui 全家桶聚合包：任务看板/Git 图谱/右侧面板/皮肤中心一键装齐",
+      "repo": "https://github.com/zhu1090093659/dsh-web-ui",
+      "category": "界面增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "@omdsh-dev/dsh-annotation",
+      "version": "1.3.14",
+      "description": "选中批注：选文字→批注→回车随消息发送，回复按 Annotation 编号逐条对照",
+      "repo": "https://github.com/omdsh-dev/dsh-annotation",
+      "category": "界面增强",
+      "compatibility": "community",
+      "source": "github",
+      "installSpec": "git+https://github.com/omdsh-dev/dsh-annotation.git#687f13dcf154"
+    },
+    {
+      "name": "@omdsh-dev/dsh-genui",
+      "version": "0.8.2",
+      "description": "助手回复内渲染交互式 UI 组件（GenUI），工具结果可视化",
+      "repo": "https://github.com/omdsh-dev/dsh-genui",
+      "category": "界面增强",
+      "compatibility": "community",
+      "source": "github",
+      "installSpec": "git+https://github.com/omdsh-dev/dsh-genui.git#f75f28621c46"
+    },
+    {
+      "name": "dsh-auto-review",
+      "version": "0.1.1",
+      "description": "第二模型只读评审审批请求：自动复核工具调用与风险提示",
+      "repo": "https://github.com/PerryLink/dsh-auto-review",
+      "category": "自动化",
+      "compatibility": "community",
+      "source": "github",
+      "installSpec": "git+https://github.com/PerryLink/dsh-auto-review.git#feeed9deedfe"
+    },
+    {
+      "name": "dsh-audit-bundle",
+      "version": "0.1.0",
+      "description": "内容寻址审计索引：跨独立证据产线建立可追溯审计链条",
+      "repo": "https://github.com/dongsheng123132/dsh-audit-bundle",
+      "category": "工作流",
+      "compatibility": "community",
+      "source": "github",
+      "installSpec": "git+https://github.com/dongsheng123132/dsh-audit-bundle.git#eb30acaf3461"
+    },
+    {
+      "name": "dsh-memory-evolve",
+      "version": "0.1.0",
+      "description": "分层长期记忆（全局/用户/项目/Git 分支/每日）+ 自我进化与技能管理",
+      "repo": "https://github.com/csyangwen/dsh-memory-evolve",
+      "category": "记忆增强",
+      "compatibility": "community",
+      "source": "github",
+      "installSpec": "git+https://github.com/csyangwen/dsh-memory-evolve.git#ce7f0faa0e02"
     }
   ]
 }

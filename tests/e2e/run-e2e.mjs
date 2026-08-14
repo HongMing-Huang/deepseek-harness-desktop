@@ -306,6 +306,24 @@ try {
     catalog.every((p) => typeof p.version === 'string' || typeof p.description === 'string'),
     'd3 每条目录项含 version/description 字段'
   )
+  const githubEntries = catalog.filter((p) => p.source === 'github')
+  assertOk(githubEntries.length >= 5, 'd3b 目录含 GitHub 直装条目 ≥5', `实际 ${githubEntries.length} 条`)
+  assertOk(
+    githubEntries.every(
+      (p) => typeof p.installSpec === 'string' && /^git\+https:\/\/github\.com\//.test(p.installSpec)
+    ),
+    'd3c GitHub 直装规格均为 github.com git URL 且已 pin'
+  )
+  const scopedEntries = catalog.filter((p) => p.name.startsWith('@'))
+  assertOk(scopedEntries.length >= 2, 'd3d 目录含 scoped 包条目 ≥2', `实际 ${scopedEntries.length} 条`)
+  // 非法直装规格必须被主进程拒绝（白名单校验，不触碰网络）
+  const badSpec = await splash.evaluate(() =>
+    window.api.installPlugin('__e2e_probe__', undefined, 'git+https://gitlab.com/o/r.git')
+  )
+  assertOk(
+    badSpec?.ok === false && typeof badSpec?.message === 'string' && badSpec.message.includes('直装规格无效'),
+    'd3e 非法直装规格被主进程白名单拒绝'
+  )
 
   const listRes = await splash.evaluate(() => window.api.listPlugins())
   assertOk(

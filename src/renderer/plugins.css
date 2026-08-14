@@ -482,3 +482,11 @@ body {
   background: var(--accent);
   border-color: var(--accent);
 }
+
+/* ── GitHub 直装徽章 ── */
+
+.tag--github {
+  color: #c9b8f5;
+  background: rgba(139, 100, 240, 0.14);
+  border: 1px solid rgba(139, 100, 240, 0.45);
+}

@@ -63,7 +63,7 @@ resources/runtime/
 **红线**：官方 dsh web 一律不改动、不注入（`dshWebView` 无 preload、强沙箱），全部差异化能力由桌面壳外挂实现；dsh 运行时始终来自官方 npm 分发并 6 小时自动跟版。
 
 - 会话中心（菜单「工具 → 会话中心」，托盘同级入口）为**只读**体验层：列表数据来自官方 `workspace.list` / `session.list` RPC（经 `http://127.0.0.1:<port>/api/<method>`，browser-trust 防线放行无 Origin 的本机主进程请求）与 `~/.dsh` 本地存储双源合并；web 未就绪时自动回退本地直读（`storages/workspace.json` + `session_projcache.json` + 会话工件 mtime）。全文搜索走官方 `session.search`，部署关闭搜索索引时回退标题/路径匹配。导出：官方 zip 存档经 `/api/session.export`（含子代理会话）；Markdown / JSONL 由本地方案按官方 zstd 帧算法解码渲染，离线可用。「恢复」即打开主窗口官方 Web 界面续接，会话选择仍由官方 UI 负责。
-- 插件市场 2.0 在既有「目录搜索 + 安装/卸载」之上新增：健康检查（包完整性 / 名称匹配 / 与目录 pin 版本比对，四态徽章）与一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度与并发锁）。
+- 插件市场 2.0 在既有「目录搜索 + 安装/卸载」之上新增：健康检查（包完整性 / 名称匹配 / 与目录 pin 版本比对，四态徽章）与一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度与并发锁）。目录条目分两种来源：`npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发的高星工作向插件，如 `dsh-better-sidebar` 同源工作台、批注、GenUI、记忆进化等——按 `git+https…@<提交>` 直装，pin 到验证时提交；安装/全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds` 放行其构建脚本）。直装规格经主进程白名单校验（仅接受 github.com 的 git 规格），其余 URL/协议一律拒绝。
 
 ### dsh 来源说明（内嵌运行时的官方来源）
 

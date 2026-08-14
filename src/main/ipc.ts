@@ -4,6 +4,7 @@ import {
   type ConfigState,
   type DiagnosticsResult,
   type OpProgress,
+  type PluginCatalogEntry,
   type PluginEntry,
   type PluginHealthResult,
   type Preferences,
@@ -18,7 +19,6 @@ import {
   type UpdaterStatusPayload,
   type WorkspaceSummary
 } from '../shared/ipc'
-import type { PluginCatalogEntry } from './runtime/plugins'
 
 /**
  * 集中式 IPC registry：所有 handler 在此注册，
@@ -41,7 +41,7 @@ export interface IpcContext {
   /* 插件（runtime/plugins.ts 实现） */
   listPlugins(): Promise<{ plugins: PluginEntry[] }>
   getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
-  installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }>
+  installPlugin(name: string, version?: string, spec?: string): Promise<{ ok: boolean; message?: string }>
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
   checkPluginsHealth(): Promise<PluginHealthResult>
   updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
@@ -88,8 +88,8 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   /* 插件（runtime/plugins.ts） */
   ipcMain.handle(IpcChannels.PluginsList, () => ctx.listPlugins())
   ipcMain.handle(IpcChannels.PluginsCatalog, () => ctx.getPluginCatalog())
-  ipcMain.handle(IpcChannels.PluginsInstall, (_e, name: string, version?: string) =>
-    ctx.installPlugin(name, version)
+  ipcMain.handle(IpcChannels.PluginsInstall, (_e, name: string, version?: string, spec?: string) =>
+    ctx.installPlugin(name, version, spec)
   )
   ipcMain.handle(IpcChannels.PluginsRemove, (_e, name: string) => ctx.removePlugin(name))
   ipcMain.handle(IpcChannels.PluginsHealth, () => ctx.checkPluginsHealth())

@@ -19,6 +19,7 @@
 - 原生通知：运行时启动失败（含分类器原因摘要）、发现 dsh 新版本、插件安装/卸载/全量更新完成（成功与失败）三类事件弹出系统通知，点击聚焦对应窗口；同 key 60s 去重去抖（纯函数去重器 + 单测），通知内容不含密钥与日志原文。
 - 会话管理中心（`sessions`，对标 Claude Desktop / Codex 会话体验 + Trae Workspace 项目卡片）：工作区卡片首页（项目名/路径/会话数/最近活动，可在官方界面打开或在访达中定位目录）；工作区钻入浏览会话（标题/轮数/步数/最近活动，官方 `workspace.list`+`session.list` RPC 与 `~/.dsh` 本地直读双源合并去重，web 未就绪自动回退本地）；跨工作区全文搜索（官方 `session.search` RPC，部署关闭搜索时回退标题/路径元数据匹配）；恢复会话（打开主窗口官方 Web 界面续接，不注入、不改写官方 web 状态）；导出会话（官方 zip 存档含子代理会话经 `/api/session.export`；本地方案按官方 zstd 帧算法解码渲染 Markdown / 原始 JSONL，可离线导出）。全部只读，绝不改写 dsh 自身数据。
 - 插件市场 2.0：已装插件健康检查（healthy/stale/missing/broken 四态徽章：包完整性、名称匹配、与目录 pin 版本比对）；一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度管线 OpProgress 与并发锁，完成可一键重启运行时）；健康摘要与可更新计数，异常/可更新项徽章展示。
+- 插件市场 2.0 之 GitHub 直装通道：目录新增 `source: github` 条目（仅源码分发的高星工作向插件：批注/GenUI/记忆进化/审批复核/审计索引等，`installSpec` 为 `git+https…@<验证时提交>` 精确 pin，scoped 包名原样支持）；直装规格经主进程白名单校验（仅接受 github.com git 规格）；安装与全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（幂等、保留原键）放行其 prepare 构建脚本；目录另收录 3 个实际发布于 scoped npm 名下的高星插件（`dsh-better-sidebar` / `@zseven-w/dsh-openpencil` / `@linxin666/dsh-web-ui-all`）。
 
 #### 移除
 
@@ -26,7 +27,7 @@
 
 #### 变更
 
-- 品牌与命名统一：产品名由 `DSH Desktop` 改为 `Deepseek`，仓库名由 `dsh-desktop` 改为 `deepseek-harness-desktop`；同步更新包名、appId（`com.deepseek.harness-desktop`）、窗口/菜单/页面标题、官网下载链接、发布流水线产物命名与文档（内嵌 dsh 运行时及 `~/.dsh` 数据目录等上游命名保持不变）。
+- 品牌与命名统一：产品名 `Deepseek`，仓库名为 `deepseek-harness-desktop`；同步更新包名、appId（`com.deepseek.harness-desktop`）、窗口/菜单/页面标题、官网下载链接、发布流水线产物命名与文档（内嵌 dsh 运行时及 `~/.dsh` 数据目录等上游命名保持不变）。
 - macOS 用户数据目录随 `productName` 变更为 `~/Library/Application Support/Deepseek/`（Linux 为 `~/.config/Deepseek/`），FAQ 与卸载残留说明已同步。
 - macOS 关窗不再退出应用（驻留托盘/dock，可再拉起）；其余平台保持关窗即退出。托盘退出与菜单退出共用 `before-quit` 优雅关闭通道。
 

@@ -193,7 +193,7 @@
       var nameRow = el('div', 'item__name-row')
       nameRow.appendChild(el('span', 'item__name', plugin.name))
       if (plugin.version) {
-        // 版本 pin 展示（安装时按此精确版本）
+        // 版本 pin 展示（npm 按此精确版本安装；github 为验证时仓库版本）
         nameRow.appendChild(el('span', 'item__version', '@' + plugin.version))
       }
       main.appendChild(nameRow)
@@ -205,7 +205,9 @@
       if (plugin.category) {
         tags.appendChild(el('span', 'tag tag--cat', plugin.category))
       }
-      if (plugin.compatibility === 'verified') {
+      if (plugin.source === 'github') {
+        tags.appendChild(el('span', 'tag tag--github', 'GitHub 直装'))
+      } else if (plugin.compatibility === 'verified') {
         tags.appendChild(el('span', 'tag tag--verified', '已验证'))
       } else if (plugin.compatibility === 'community') {
         tags.appendChild(el('span', 'tag tag--community', '社区'))
@@ -213,8 +215,12 @@
       main.appendChild(tags)
       item.appendChild(main)
 
-      var btn = el('button', 'btn', '安装')
+      var isGithub = plugin.source === 'github'
+      var btn = el('button', 'btn', isGithub ? '安装（源码）' : '安装')
       btn.type = 'button'
+      if (isGithub && plugin.installSpec) {
+        btn.title = '源码直装：' + plugin.installSpec + '（将按官方指引自动放行其构建脚本）'
+      }
       if (installed.indexOf(plugin.name) >= 0) {
         btn.textContent = '已安装'
         btn.disabled = true
@@ -254,8 +260,10 @@
     setAllButtonsDisabled(true)
     // 进度区就位（等待 OpProgress 事件填充）
     showProgress('start', '正在提交安装请求…')
+    // GitHub 直装条目：传 installSpec（git+https…@pin）代替 npm 版本 pin
+    var spec = plugin.source === 'github' ? plugin.installSpec : undefined
     api
-      .installPlugin(plugin.name, plugin.version || undefined)
+      .installPlugin(plugin.name, plugin.version || undefined, spec)
       .then(function (result) {
         setAllButtonsDisabled(false)
         if (!result.ok) {
