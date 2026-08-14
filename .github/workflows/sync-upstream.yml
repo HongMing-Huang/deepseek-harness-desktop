@@ -1,0 +1,78 @@
+# 上游同步：每 6 小时检查 npm 上 @deepseek-ai/dsh 是否有新版本
+# 有新版 → 更新 DSH_VERSION 与 CHANGELOG → 开 upstream-sync 标签的 PR（人工验证后合并）
+# 纪律：绝不自动合并；绝不自动 bump 应用壳版本；PR 合并只推 main，不触发
+#       Release（Release 仅由 vX.Y.Z tag 触发）。
+# 提示：仓库长期（默认 60 天）无提交活动时 GitHub 会暂停 scheduled workflow，
+#       届时手动跑一次 workflow_dispatch 即可重新启用。
+name: Sync upstream dsh
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Check @deepseek-ai/dsh and open PR if newer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check upstream version
+        id: check
+        run: node scripts/check-upstream.mjs --apply
+
+      - name: Ensure label exists
+        if: steps.check.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create upstream-sync \
+            --color 0e7a8d \
+            --description "上游 dsh 运行时同步（机器人 PR）" \
+            --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Create pull request
+        if: steps.check.outputs.updated == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: upstream-sync/dsh-${{ steps.check.outputs.latest }}
+          delete-branch: true
+          title: 'chore(upstream): dsh runtime ${{ steps.check.outputs.current }} -> ${{ steps.check.outputs.latest }}'
+          labels: |
+            upstream-sync
+          commit-message: 'chore(upstream): bump DSH_VERSION to ${{ steps.check.outputs.latest }}'
+          body: |
+            上游同步 PR（由 sync-upstream 机器人自动提交）。
+
+            | 项 | 值 |
+            | --- | --- |
+            | 当前内嵌 dsh | `${{ steps.check.outputs.current }}` |
+            | npm dist-tags.latest | `${{ steps.check.outputs.latest }}` |
+
+            变更内容：
+            - `src/shared/versions.ts`：`DSH_VERSION` 钉死值更新
+            - `CHANGELOG.md`：「dsh 运行时」小节追加条目
+
+            人工验证 checklist（合并前）：
+            1. 阅读 dsh 上游发布说明，确认无破坏性变更；
+            2. 本地执行 `npm run prepare:runtime` 确认可安装；
+            3. 启动应用冒烟：splash → dsh web 探活 → 界面可用。
+
+            注意：**合并本 PR 不触发 Release**（Release 仅由 `vX.Y.Z` tag 触发）；
+            也不会 bump 应用壳版本（应用壳 semver 只经版本 PR 更新）。

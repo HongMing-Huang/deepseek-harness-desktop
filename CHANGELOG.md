@@ -4,6 +4,10 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+> 上游同步说明：`sync-upstream` 机器人检测到 `@deepseek-ai/dsh` 新版时，会在下方「dsh 运行时」小节顶部自动追加形如
+> `### [新版本]` + `upstream-sync：<旧版本> → <新版本>（机器人自动提交，待人工验证后合并）` 的条目，
+> 人工验证 PR 后才会进入正式发布；未验证的条目不代表已发布内容。
+
 ## 应用壳（dsh-desktop）
 
 ### [0.1.0] - 2026-08-14

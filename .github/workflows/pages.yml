@@ -1,0 +1,44 @@
+# GitHub Pages 部署：官网为纯静态站点（site/ 目录，无构建链）
+# 触发：main 分支上 site/ 或 README.md 变更；或 Release 发布（页脚版本徽章随之刷新）
+# 前置：仓库 Settings → Pages → Source 选择 "GitHub Actions"（仅需配置一次）
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'README.md']
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一次 Pages 部署，新部署取消进行中的旧部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy site to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,240 @@
+# Release：发布流水线（仅由 vX.Y.Z tag 触发）
+#
+# 纪律：
+# - tag 必须与 package.json version 一致（validate job 强校验）；
+# - 应用壳版本只经版本 PR bump，DSH_VERSION 只由 upstream-sync PR 更新；
+# - 每个矩阵 job：准备运行时 → 构建 → 打包（--publish never）→ 冒烟 → 清单 → artifact；
+# - release job：汇总产物 → 生成无版本号副本（供官网 latest/download 稳定链接）→
+#   总 SHASUMS256.txt → latest.yml 占位 → 创建 Release（notes 取自 CHANGELOG 对应版本段）。
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  # ---------- 版本纪律校验 ----------
+  validate:
+    name: Validate tag vs package.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify tag matches package.json version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${PKG_VERSION}" != "${TAG_NAME}" ]; then
+            echo "::error::tag '${TAG_NAME}' 与 package.json version '${PKG_VERSION}' 不一致（应为 'v${PKG_VERSION}'）"
+            exit 1
+          fi
+          echo "版本纪律校验通过：${TAG_NAME} == v${PKG_VERSION}"
+
+  # ---------- 四平台矩阵构建 ----------
+  build:
+    name: Build ${{ matrix.platform }}-${{ matrix.arch }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            args: '--mac --arm64'
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+            args: '--mac --x64'
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            args: '--linux --x64'
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            args: '--linux --arm64'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # 运行时缓存：key 含 versions.ts 哈希（版本变化自动失效），前缀兜底复用
+      - name: Cache embedded runtime
+        uses: actions/cache@v4
+        with:
+          path: resources/runtime
+          key: runtime-${{ matrix.platform }}-${{ matrix.arch }}-${{ hashFiles('src/shared/versions.ts') }}
+          restore-keys: |
+            runtime-${{ matrix.platform }}-${{ matrix.arch }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare embedded runtime
+        run: npm run prepare:runtime -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Build app
+        run: npm run build
+
+      # --publish never：发布统一交给 release job，避免逐 job 触发 draft
+      - name: Package with electron-builder
+        run: npx electron-builder ${{ matrix.args }} --config electron-builder.yml --publish never
+
+      - name: Smoke test embedded runtime
+        run: node scripts/smoke-runtime.mjs --port 3999 --timeout-ms 45000
+
+      # 本 job 产物清单（分平台命名，避免 download-artifact 合并时同名覆盖）
+      - name: Generate SHA256 manifest
+        shell: bash
+        run: |
+          cd release
+          if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
+          MANIFEST="SHASUMS256-${{ matrix.platform }}-${{ matrix.arch }}.txt"
+          : > "$MANIFEST"
+          shopt -s nullglob
+          for f in *.dmg *.zip *.deb *.AppImage; do
+            [ -f "$f" ] || continue
+            "$HASH" "$f" >> "$MANIFEST"
+          done
+          echo "--- $MANIFEST ---"
+          cat "$MANIFEST"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.platform }}-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.deb
+            release/*.AppImage
+            release/SHASUMS256-*.txt
+
+  # ---------- 汇总发布 ----------
+  release:
+    name: Create GitHub Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # 无版本号副本：dsh-desktop-<ver>-<os>-<arch>.<ext> → dsh-desktop-<os>-<arch>.<ext>
+      # 供官网「releases/latest/download/<file>」稳定直链使用
+      - name: Create unversioned copies
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          cd dist
+          for f in *; do
+            case "$f" in
+              dsh-desktop-*) ;;
+              *) continue ;;
+            esac
+            case "$f" in
+              *.dmg|*.zip|*.deb|*.AppImage) ;;
+              *) continue ;;
+            esac
+            target="${f/dsh-desktop-$VERSION-/dsh-desktop-}"
+            if [ "$target" != "$f" ]; then
+              cp -f "$f" "$target"
+              echo "copy: $f -> $target"
+            fi
+          done
+
+      # 总清单：覆盖全部版本化产物 + 无版本号副本
+      - name: Generate consolidated SHASUMS256.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
+          : > SHASUMS256.txt
+          shopt -s nullglob
+          for f in *.dmg *.zip *.deb *.AppImage; do
+            [ -f "$f" ] || continue
+            "$HASH" "$f" >> SHASUMS256.txt
+          done
+          echo '--- SHASUMS256.txt ---'
+          cat SHASUMS256.txt
+
+      # 占位清单：为未来 electron-updater 预留的最小更新元数据（当前未启用应用内自动更新）
+      - name: Generate latest.yml placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          SHA512="$(openssl dgst -binary -sha512 dist/dsh-desktop-mac-arm64.dmg | openssl base64 -A)"
+          cat > dist/latest.yml <<EOF
+          # 占位：为未来接入 electron-updater 预留的最小更新清单（当前版本未启用自动更新）。
+          version: ${VERSION}
+          files:
+            - url: dsh-desktop-mac-arm64.dmg
+              sha512: ${SHA512}
+          EOF
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          node -e '
+            const fs = require("fs");
+            const version = require("./package.json").version;
+            const src = fs.readFileSync("CHANGELOG.md", "utf8");
+            const out = [];
+            let inSection = false;
+            for (const line of src.split("\n")) {
+              const h = /^### \[([^\]]+)\]/.exec(line);
+              if (h) { inSection = (h[1] === version); continue; }
+              if (/^## /.test(line)) inSection = false;
+              if (inSection) out.push(line);
+            }
+            let body = out.join("\n").trim();
+            if (!body) body = `Release ${version}，详细变更见 CHANGELOG.md。`;
+            const notes = `# v${version}\n\n${body}\n\n---\n\n` +
+              `- 安装指引与 SHA256 校验说明：官网 Install 页\n` +
+              `- 应用未签名：macOS 首次打开请右键 → 打开；Linux 优先使用 deb。\n`;
+            fs.writeFileSync("notes.md", notes);
+            console.log(notes);
+          '
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          body_path: notes.md
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.deb
+            dist/*.AppImage
+            dist/SHASUMS256.txt
+            dist/SHASUMS256-*.txt
+            dist/latest.yml
