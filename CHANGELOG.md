@@ -23,6 +23,7 @@
 - 插件直装自检修复：`allowBuilds` 改为 pnpm 10 映射形态（`name: true`，旧 pnpm 9 列表自动迁移）；安装时同时放行传入包名与规格推导的仓库名，失败且输出含 `Ignored build scripts` 时按 pnpm 打印的精确 key 补放行并自动重试一次；全量更新预放行覆盖 profile 依赖值为 git 规格的外源直装插件。
 - 会话「恢复」增强：恢复会话时打开主窗口官方 Web 界面的同时，在系统文件管理器中定位该会话所在项目目录（Trae 式工作区上下文）；定位失败不影响恢复本身。
 - **dshfind 在线市场接入**（插件窗口新增「dshfind 市场」Tab）：主进程拉取 dshfind.com/zh/plugins 并解析卡片（1200+ 条目：名称/作者/描述/星数/更新信息/仓库链接），userData 缓存 24h 本地搜索，可强制刷新；安装复用 dshfind 官方命令 `github:<author>/<name>` 走 GitHub 直装通道；解析失败/网络失败均明确降级，不产出垃圾条目。
+- 文档套件与体验打磨：补齐 `LICENSE`（MIT）并新增 `ARCHITECTURE.md` / `SECURITY.md` / `CONTRIBUTING.md` / PR 与 Issue 模板；README 新增「更新边界」「官方生态链接」「项目文档」小节；settings/plugins/sessions 三窗口统一外链守卫（https 转系统浏览器 + 导航拦截）；插件窗口目录与市场条目新增「仓库」外链与底部官方生态链接（插件管理文档/架构/Cordis/dshfind）；会话中心新增刷新按钮、聚焦自动刷新与 `Cmd/Ctrl+Shift+S` 菜单快捷键。
 - 官网（`site/`）重设计：对齐官方 deepseek.com/harness 设计语言——深色页面、玻璃卡片、发丝描边、大写 mono kicker、红绿灯终端窗口；首页特性更新为六大已交付能力，插件预览替换为真实精选目录条目并新增 dshfind 入口，FAQ 补充会话中心只读说明。
 
 #### 移除
