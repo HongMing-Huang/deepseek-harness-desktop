@@ -45,11 +45,20 @@ export class RuntimeUpdater {
   /** 指针已切换到新版本但尚未验证就绪（退出时需回退） */
   private pointerSwitched = false
   private disposed = false
+  private readonly statusListeners = new Set<(status: UpdaterStatusPayload) => void>()
 
   constructor(private readonly supervisor: ProcessSupervisor) {}
 
   get updating(): boolean {
     return this.applying
+  }
+
+  /** 订阅更新器状态（托盘等主进程内部消费；返回取消函数） */
+  onStatus(listener: (status: UpdaterStatusPayload) => void): () => void {
+    this.statusListeners.add(listener)
+    return () => {
+      this.statusListeners.delete(listener)
+    }
   }
 
   /** 当前生效的 dsh 版本（解析失败回退内嵌清单，再失败为 null） */
@@ -74,6 +83,7 @@ export class RuntimeUpdater {
     if (this.intervalTimer) clearInterval(this.intervalTimer)
     this.firstTimer = null
     this.intervalTimer = null
+    this.statusListeners.clear()
   }
 
   private async autoCheck(): Promise<void> {
@@ -182,6 +192,22 @@ export class RuntimeUpdater {
     } catch (err) {
       logger.warn(`壳更新检查网络异常：${errorMessage(err)}`)
       return null
+    }
+  }
+
+  /**
+   * 手动检查（托盘/菜单入口）：立即检查并走完整引导链路——
+   * 发现 dsh 新版弹窗（受「稍后提醒」豁免约束）、壳新版弹窗引导下载。
+   */
+  async runManualCheck(): Promise<void> {
+    const result = await this.checkNow()
+    if (this.disposed || this.applying) {
+      return
+    }
+    if (result.state === 'available' && result.latestDsh) {
+      await this.promptUpdate(result.latestDsh, await getPreferences())
+    } else if (result.shellUpdate) {
+      await this.promptShellUpdate(result.shellUpdate)
     }
   }
 
@@ -452,6 +478,14 @@ export class RuntimeUpdater {
       message: patch.message
     }
     broadcastUpdaterStatus(payload)
+    // 主进程内部订阅方（托盘）：异常不影响更新流程本身
+    for (const listener of this.statusListeners) {
+      try {
+        listener(payload)
+      } catch {
+        // ignore
+      }
+    }
   }
 }
 

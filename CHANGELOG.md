@@ -15,6 +15,8 @@
 #### 新增
 
 - `prepare-runtime` 新增 dsh 官方来源校验：安装（含幂等跳过）后验证包名/钉死版本/`repository` 指向 `deepseek-ai/deepseek-harness`，并核对 npm registry 元数据维护者属 deepseek-ai；任一不匹配即构建失败，安装日志打印来源声明。
+- 托盘常驻（`tray`）：官方黑鲸剪影模板图标（macOS 16/32px template，Linux/Windows 32px）；菜单提供显示主窗口 / 插件市场 / 设置 / 检查更新 / 退出；tooltip 附加运行状态（启动中/运行中/出错/更新中，订阅 supervisor 与更新器状态）。
+- 原生通知：运行时启动失败（含分类器原因摘要）、发现 dsh 新版本、插件安装/卸载完成（成功与失败）三类事件弹出系统通知，点击聚焦对应窗口；同 key 60s 去重去抖（纯函数去重器 + 单测），通知内容不含密钥与日志原文。
 
 #### 移除
 
@@ -24,6 +26,7 @@
 
 - 品牌与命名统一：产品名由 `DSH Desktop` 改为 `Deepseek`，仓库名由 `dsh-desktop` 改为 `deepseek-harness-desktop`；同步更新包名、appId（`com.deepseek.harness-desktop`）、窗口/菜单/页面标题、官网下载链接、发布流水线产物命名与文档（内嵌 dsh 运行时及 `~/.dsh` 数据目录等上游命名保持不变）。
 - macOS 用户数据目录随 `productName` 变更为 `~/Library/Application Support/Deepseek/`（Linux 为 `~/.config/Deepseek/`），FAQ 与卸载残留说明已同步。
+- macOS 关窗不再退出应用（驻留托盘/dock，可再拉起）；其余平台保持关窗即退出。托盘退出与菜单退出共用 `before-quit` 优雅关闭通道。
 
 ### [0.1.0] - 2026-08-14
 

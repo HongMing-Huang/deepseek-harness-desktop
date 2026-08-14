@@ -20,6 +20,7 @@ import {
 import * as config from './config'
 import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay } from './windows'
 import { logger } from './logger'
+import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
 import type {
   ConfigState,
@@ -33,6 +34,7 @@ import type {
 let mainWindow: BrowserWindow | null = null
 const supervisor = new ProcessSupervisor()
 let updater: RuntimeUpdater | null = null
+let trayController: TrayController | null = null
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
 /** 退出流程已发起（before-quit 二次进入直接 app.exit，防死循环） */
 let quitRequested = false
@@ -54,11 +56,20 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.focus()
-  }
+  showMainWindowFromTray()
 })
+
+/** 显示主窗口（托盘点击/二次激活共用）：存在则显示+聚焦，不存在则创建并引导运行时 */
+function showMainWindowFromTray(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+    return
+  }
+  mainWindow = createMainWindow()
+  void bootstrapRuntime()
+}
 
 function setStatus(status: RuntimeStatus): void {
   latestStatus = status
@@ -284,11 +295,20 @@ function buildIpcContext(): IpcContext {
 
     savePreferences: (patch: Partial<Preferences>) => config.savePreferencesMerge(patch),
 
-    /* 插件：runtime/plugins.ts 直通（安装/卸载内含 OpProgress 广播与并发锁） */
+    /* 插件：runtime/plugins.ts 直通（安装/卸载内含 OpProgress 广播与并发锁）；
+       结果同步给托盘发系统通知（并发锁拒绝除外） */
     listPlugins: () => plugins.listInstalledPlugins().then((items) => ({ plugins: items })),
     getPluginCatalog: () => plugins.getPluginCatalog().then((catalog) => ({ catalog })),
-    installPlugin: (name: string, version?: string) => plugins.installPlugin(name, version),
-    removePlugin: (name: string) => plugins.removePlugin(name),
+    installPlugin: async (name: string, version?: string) => {
+      const result = await plugins.installPlugin(name, version)
+      trayController?.notifyPluginResult('install', name, result.ok, result.message)
+      return result
+    },
+    removePlugin: async (name: string) => {
+      const result = await plugins.removePlugin(name)
+      trayController?.notifyPluginResult('remove', name, result.ok, result.message)
+      return result
+    },
 
     checkUpdater: () =>
       updater ? updater.checkNow() : Promise.resolve({
@@ -332,6 +352,19 @@ app.whenReady().then(async () => {
   void bootstrapRuntime()
   updater.start()
 
+  // 托盘常驻：点击显示/创建主窗口；菜单含插件市场/设置/检查更新/退出；
+  // 订阅 supervisor 与更新器状态（tooltip 附加运行状态，异常/新版本发原生通知）
+  trayController = new TrayController({
+    supervisor,
+    showMainWindow: showMainWindowFromTray,
+    checkUpdates: () => {
+      void updater?.runManualCheck()
+    },
+    onUpdaterStatus: (listener) =>
+      updater ? updater.onStatus(listener) : () => {}
+  })
+  trayController.start()
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow()
@@ -341,12 +374,18 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  // macOS 惯例之外的简化：关闭窗口即退出（桌面工具类应用）
-  app.quit()
+  // macOS：托盘/dock 常驻，关窗驻留（dock 或托盘可再拉起）；
+  // 其余平台保持关窗即退出（桌面工具类应用惯例）
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
 })
 
 async function shutdown(): Promise<void> {
   logger.info('正在停止 dsh web 子进程…')
+  // 托盘先释放（事件订阅与系统资源），避免退出过程中再弹通知/更新 tooltip
+  trayController?.dispose()
+  trayController = null
   // 插件操作进行中：先中止 pnpm 子进程，避免退出后残留
   if (plugins.hasActivePluginOperation()) {
     plugins.abortActivePluginOperation()

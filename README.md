@@ -14,6 +14,8 @@ src/
 │   ├── index.ts               # 应用生命周期、窗口管理、运行时引导、退出清理
 │   ├── ipc.ts                 # IPC 集中注册表（handler 统一挂载 + 广播覆盖全部自有 webContents）
 │   ├── windows.ts             # 主窗口 / dsh web 全幅视图管理与外链守卫
+│   ├── tray.ts                # 托盘常驻（状态感知 tooltip + 菜单 + 原生通知）
+│   ├── notify-gate.ts         # 通知去重器与托盘状态文案（纯函数，可单测）
 │   ├── config.ts              # ~/.dsh 配置读写（凭据单键合并、偏好串行化）
 │   ├── logger.ts              # 主进程文件日志（userData/logs/main.log）
 │   └── runtime/
@@ -38,6 +40,7 @@ src/
 
 tests/
 ├── plugin-progress.test.ts    # pnpm 输出进度解析单测
+├── tray-notify.test.ts        # 通知去重器与托盘状态文案单测
 └── e2e/run-e2e.mjs            # E2E（playwright-core CDP，引导/进度/配置/插件/更新）
 ```
 
