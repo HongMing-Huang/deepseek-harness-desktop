@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { ipcMain, webContents } from 'electron'
 import {
   IpcChannels,
   type ConfigState,
@@ -81,32 +81,45 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.TokenGetSeries, (_e, range?: string) => ctx.getTokenSeries(range))
 }
 
-/* ── 事件广播：向所有窗口推送 ── */
+/* ── 事件广播：向所有应用自有页面推送 ── */
 
+/**
+ * 广播目标 = 全部应用自有页面的 webContents：
+ * - BrowserWindow 页面（splash / settings / plugins）；
+ * - WebContentsView 页面（activity 侧栏）—— BrowserWindow.getAllWindows()
+ *   遍历不到子视图，因此改用 webContents.getAllWebContents() 按 URL 过滤：
+ *   打包态 file: 协议自有页面 + dev 态本地 dev server 前缀；
+ *   dsh web 视图（远程内容）与其它来源一律排除，避免向第三方页面泄漏事件。
+ */
 function broadcast<T>(channel: string, payload: T): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) {
-      win.webContents.send(channel, payload)
-    }
+  const devServer = process.env['ELECTRON_RENDERER_URL']
+  for (const wc of webContents.getAllWebContents()) {
+    if (wc.isDestroyed()) continue
+    const url = wc.getURL()
+    const isOwnPage =
+      url.startsWith('file:') ||
+      (typeof devServer === 'string' && devServer.length > 0 && url.startsWith(devServer))
+    if (!isOwnPage) continue
+    wc.send(channel, payload)
   }
 }
 
-/** 向所有窗口广播运行时状态 */
+/** 向全部自有页面广播运行时状态 */
 export function broadcastStatus(status: RuntimeStatus): void {
   broadcast(IpcChannels.RuntimeStatus, status)
 }
 
-/** 向所有窗口广播长操作进度 */
+/** 向全部自有页面广播长操作进度 */
 export function broadcastOpProgress(progress: OpProgress): void {
   broadcast(IpcChannels.OpProgress, progress)
 }
 
-/** 向所有窗口广播更新器状态 */
+/** 向全部自有页面广播更新器状态 */
 export function broadcastUpdaterStatus(status: UpdaterStatusPayload): void {
   broadcast(IpcChannels.UpdaterStatus, status)
 }
 
-/** 向所有窗口广播 Token 采样（活动侧栏实时更新） */
+/** 向全部自有页面广播 Token 采样（活动侧栏实时更新） */
 export function broadcastTokenSample(payload: TokenSamplePayload): void {
   broadcast(IpcChannels.TokenSample, payload)
 }

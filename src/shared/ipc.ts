@@ -216,15 +216,27 @@ export interface PluginEntry {
   description?: string
 }
 
+/** 用量历史样本点：t 为分钟桶起点（ms epoch），tokens 为该分钟净增 token 数 */
 export interface TokenSeriesPoint {
-  /** 采样时间戳（ms epoch） */
   t: number
-  tokensIn: number
-  tokensOut: number
+  tokens: number
 }
 
 export interface TokenSeries {
   points: TokenSeriesPoint[]
+}
+
+/** Token 采样推送载荷（与 token-pipeline.ts 的 TokenSamplePayload 同形，渲染层直接消费） */
+export interface TokenSamplePayload {
+  /** 管道是否仍在产出数据（停用时 UI 显示占位） */
+  active: boolean
+  aggregate: {
+    totals: { uncachedInput: number; output: number; cacheRead: number; cacheWrite: number }
+    context: { pressureTokens: number; contextWindow: number; surfaceTokens: number } | null
+    updatedAt: number
+  } | null
+  /** 最近 24h 分钟样本（供侧栏即时绘图） */
+  recent: TokenSeriesPoint[]
 }
 
 /* ───────────────────────── preload API 白名单 ───────────────────────── */
@@ -243,10 +255,10 @@ export interface DshDesktopApi {
   applyUpdater(version?: string): Promise<{ ok: boolean; message?: string }>
   onUpdaterStatus(listener: (status: UpdaterStatusPayload) => void): () => void
 
-  /* 插件（handler 由插件管理阶段实现，renderer 暂不调用） */
+  /* 插件（handler 由插件管理阶段实现） */
   listPlugins(): Promise<{ plugins: PluginEntry[] }>
   getPluginCatalog(): Promise<{ catalog: PluginEntry[] }>
-  installPlugin(name: string): Promise<{ ok: boolean; message?: string }>
+  installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }>
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
 
   /* 配置 */
@@ -255,13 +267,13 @@ export interface DshDesktopApi {
   saveModel(model: string): Promise<{ ok: boolean; message?: string }>
   savePreferences(patch: Partial<Preferences>): Promise<Preferences>
 
-  /* Token（handler 由 Token 阶段实现，renderer 暂不调用） */
+  /* Token（handler 由 Token 阶段实现） */
   getTokenSeries(range?: string): Promise<TokenSeries>
 
   /* 事件订阅（返回取消函数） */
   onStatus(listener: (status: RuntimeStatus) => void): () => void
   onOpProgress(listener: (progress: OpProgress) => void): () => void
-  onTokenSample(listener: (sample: TokenSeriesPoint) => void): () => void
+  onTokenSample(listener: (sample: TokenSamplePayload) => void): () => void
 }
 
 declare global {

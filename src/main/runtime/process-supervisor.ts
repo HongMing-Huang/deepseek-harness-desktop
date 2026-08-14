@@ -11,6 +11,8 @@ const DEFAULT_PORT = 3080
 const READY_TIMEOUT_MS = 60_000
 const READY_POLL_INTERVAL_MS = 200
 const SIGTERM_GRACE_MS = 5_000
+/** SIGKILL 后的兑底等待：极端情况（信号投递失败 / 进程僵死）下保证 stop() 必然返回 */
+const SIGKILL_GRACE_MS = 3_000
 const TAIL_LINES = 200
 
 /** 环形缓冲：只保留最后 N 行输出 */
@@ -140,6 +142,11 @@ export class ProcessSupervisor extends EventEmitter {
 
     child.on('error', (err) => {
       this.clearReadyTimer()
+      // spawn 失败（如 ENOENT）不会触发 exit 事件：此处必须完成状态清理，
+      // 否则 child 悬挂导致 stop() 永挂、应用无法退出
+      this.child = null
+      this.currentPhase = 'stopped'
+      void this.removePidFile()
       this.emit('error', {
         message: `无法启动 dsh web：${err.message}`,
         stderrTail: this.stderrTail.toString(),
@@ -199,7 +206,7 @@ export class ProcessSupervisor extends EventEmitter {
     this.readyTimer = setTimeout(() => void tick(), READY_POLL_INTERVAL_MS)
   }
 
-  /** 优雅停止：SIGTERM → 5s 宽限 → SIGKILL */
+  /** 优雅停止：SIGTERM → 5s 宽限 → SIGKILL → 3s 兑底（保证必然返回） */
   async stop(): Promise<void> {
     const child = this.child
     if (!child || child.exitCode !== null) {
@@ -211,8 +218,10 @@ export class ProcessSupervisor extends EventEmitter {
     this.currentPhase = 'stopped'
     this.clearReadyTimer()
 
+    // exit 与 error 双路出口：spawn 失败 / kill 异常等场景下 exit 可能永不触发
     const exited = new Promise<void>((resolve) => {
       child.once('exit', () => resolve())
+      child.once('error', () => resolve())
     })
 
     try {
@@ -231,7 +240,11 @@ export class ProcessSupervisor extends EventEmitter {
       } catch {
         // ignore
       }
-      await exited
+      // SIGKILL 后短超时兑底：不再无限等待 exit，避免退出流程卡死
+      await Promise.race([
+        exited,
+        new Promise<void>((resolve) => setTimeout(resolve, SIGKILL_GRACE_MS))
+      ])
     }
     this.child = null
     await this.removePidFile()

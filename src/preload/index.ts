@@ -5,7 +5,7 @@ import {
   type OpProgress,
   type Preferences,
   type RuntimeStatus,
-  type TokenSeriesPoint,
+  type TokenSamplePayload,
   type UpdaterStatusPayload
 } from '../shared/ipc'
 
@@ -39,10 +39,11 @@ const api: DshDesktopApi = {
   checkUpdater: () => ipcRenderer.invoke(IpcChannels.UpdaterCheckNow),
   applyUpdater: (version?: string) => ipcRenderer.invoke(IpcChannels.UpdaterApply, version),
 
-  /* 插件：handler 由插件管理阶段实现，renderer 暂不调用 */
+  /* 插件：handler 由插件管理阶段实现 */
   listPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsList),
   getPluginCatalog: () => ipcRenderer.invoke(IpcChannels.PluginsCatalog),
-  installPlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsInstall, name),
+  installPlugin: (name: string, version?: string) =>
+    ipcRenderer.invoke(IpcChannels.PluginsInstall, name, version),
   removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
 
   /* 配置 */
@@ -52,7 +53,7 @@ const api: DshDesktopApi = {
   savePreferences: (patch: Partial<Preferences>) =>
     ipcRenderer.invoke(IpcChannels.ConfigSavePreferences, patch),
 
-  /* Token：handler 由 Token 阶段实现，renderer 暂不调用 */
+  /* Token：handler 由 Token 阶段实现 */
   getTokenSeries: (range?: string) => ipcRenderer.invoke(IpcChannels.TokenGetSeries, range),
 
   /* 事件订阅 */
@@ -62,8 +63,8 @@ const api: DshDesktopApi = {
     subscribe<OpProgress>(IpcChannels.OpProgress, listener),
   onUpdaterStatus: (listener: (status: UpdaterStatusPayload) => void) =>
     subscribe<UpdaterStatusPayload>(IpcChannels.UpdaterStatus, listener),
-  onTokenSample: (listener: (sample: TokenSeriesPoint) => void) =>
-    subscribe<TokenSeriesPoint>(IpcChannels.TokenSample, listener)
+  onTokenSample: (listener: (sample: TokenSamplePayload) => void) =>
+    subscribe<TokenSamplePayload>(IpcChannels.TokenSample, listener)
 }
 
 /**

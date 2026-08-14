@@ -46,8 +46,9 @@ export function sideloadBinPath(version: string): string {
 /**
  * 安装指定版本 dsh 到目标目录：
  * 1. 准备最小 package.json（name: dsh-runtime, private: true）；
- * 2. `pnpm add @deepseek-ai/dsh@<version> --node-linker=hoisted --ignore-scripts=false`
- *    （使用 resolveRuntime 解析出的 node/pnpm，shim 与 standalone 均可）；
+ * 2. `pnpm add @deepseek-ai/dsh@<version> --node-linker=hoisted`
+ *    （不携带 --ignore-scripts，遵循 pnpm 10 默认不执行依赖 install scripts
+ *    的安全策略；使用 resolveRuntime 解析出的 node/pnpm，shim 与 standalone 均可）；
  * 3. 校验 lib/bin.js 存在；
  * 4. 写 version.json 清单。
  * 支持 AbortSignal 取消（应用退出时中止 pnpm 子进程）。
@@ -77,7 +78,7 @@ export async function installDsh(
 
   const tail = await runPnpmAdd(
     resolution.pnpm,
-    ['add', `${DSH_PACKAGE}@${opts.version}`, '--node-linker=hoisted', '--ignore-scripts=false'],
+    ['add', `${DSH_PACKAGE}@${opts.version}`, '--node-linker=hoisted'],
     targetDir,
     buildChildEnv(resolution),
     signal,
@@ -160,8 +161,12 @@ function runPnpmAdd(
       cleanup()
       if (code === 0) {
         resolve(tail)
-      } else if (signal?.aborted || signalName !== null) {
+      } else if (signal?.aborted) {
+        // 仅显式 abort（应用退出）才视为取消
         reject(new InstallCancelledError())
+      } else if (code === null) {
+        // 其它信号终止（如外部 kill）归为失败，避免误判为用户取消
+        reject(new Error(`pnpm add 异常终止（signal=${signalName ?? 'null'}）\n${tail}`))
       } else {
         reject(new Error(`pnpm add 退出码 ${code}\n${tail}`))
       }

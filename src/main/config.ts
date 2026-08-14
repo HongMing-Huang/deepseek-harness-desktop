@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { parse, parseDocument, stringify, Document } from 'yaml'
+import { parse, parseDocument, isMap, Document } from 'yaml'
 import { dshHome } from './runtime/paths'
 import type { ApiKeyStatus, Preferences } from '../shared/ipc'
 
@@ -82,17 +82,27 @@ export async function getApiKeyStatus(): Promise<ApiKeyStatus> {
 }
 
 /**
- * 保存 API Key：校验非空 → 临时文件 + rename 原子替换单键凭据文件（chmod 0600）。
- * 任一步失败时原文件保持不动。
+ * 保存 API Key：与 saveDefaultModel 同款 yaml Document 读-改-写 ——
+ * 仅更新 DEEPSEEK_API_KEY 单键，保留文件中其它键、键序与注释；
+ * 原子写 + chmod 0600，任一步失败时原文件保持不动。
  */
 export async function saveApiKey(key: string): Promise<{ ok: boolean; message?: string }> {
   const trimmed = key.trim()
   if (trimmed.length === 0) {
     return { ok: false, message: 'API Key 不能为空' }
   }
+  let doc: Document
   try {
-    const body = stringify({ [CREDENTIALS_KEY]: trimmed })
-    await atomicWrite(credentialsPath(), body, 0o600)
+    const raw = await readFile(credentialsPath(), 'utf-8')
+    const parsed = parseDocument(raw)
+    // 坏文件 / 顶层非映射（纯标量 / 序列）：从最小结构重建，避免覆写丢失可解析内容
+    doc = parsed.errors.length > 0 || !isMap(parsed.contents) ? new Document() : parsed
+  } catch {
+    doc = new Document()
+  }
+  try {
+    doc.set(CREDENTIALS_KEY, trimmed)
+    await atomicWrite(credentialsPath(), String(doc), 0o600)
     return { ok: true }
   } catch (err) {
     return { ok: false, message: `写入凭据失败：${errorMessage(err)}` }
@@ -172,10 +182,21 @@ export async function getPreferences(): Promise<Preferences> {
   }
 }
 
-/** 浅合并保存偏好字段（均为标量，一层 Object.assign 语义足够） */
+/** 偏好写入串行队列：读-改-写链式排队，避免并发保存互相覆盖丢字段 */
+let preferencesQueue: Promise<unknown> = Promise.resolve()
+
+/**
+ * 浅合并保存偏好字段（均为标量，一层 Object.assign 语义足够）；
+ * 并发调用按到达顺序串行执行，各自拿到自己的结果或异常。
+ */
 export async function savePreferencesMerge(patch: Partial<Preferences>): Promise<Preferences> {
-  const current = await getPreferences()
-  const next: Preferences = { ...current, ...patch }
-  await atomicWrite(preferencesPath(), JSON.stringify(next, null, 2))
-  return next
+  const task = preferencesQueue.then(async () => {
+    const current = await getPreferences()
+    const next: Preferences = { ...current, ...patch }
+    await atomicWrite(preferencesPath(), JSON.stringify(next, null, 2))
+    return next
+  })
+  // 队尾吞掉异常：单个失败不断阻断后续排队任务
+  preferencesQueue = task.catch(() => undefined)
+  return task
 }
