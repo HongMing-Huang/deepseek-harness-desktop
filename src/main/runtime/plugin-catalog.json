@@ -1,0 +1,149 @@
+{
+  "comment": "社区插件目录：候选来自 awesome-dsh-plugins 雷达（github.com/AdamPlatin123/awesome-dsh-plugins），全部条目均经 registry.npmjs.org 逐个验证真实存在并锁定（pin）验证时的 latest 版本。compatibility 语义：verified = npm 元数据可追溯到明确 GitHub 仓库；community = 仅 npm 分发、无仓库指向。收录 ≠ 官方背书，兼容性以实际为准。",
+  "plugins": [
+    {
+      "name": "dsh-message-edit",
+      "version": "0.2.1",
+      "description": "基于分支的消息编辑、重试与版本时间线导航",
+      "repo": "https://github.com/Moeblack/dsh-message-edit",
+      "category": "会话增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-side-panel",
+      "version": "1.0.0",
+      "description": "右侧开发面板：文件浏览、会话历史与 Git 版本对照",
+      "repo": "https://github.com/XYZ1024-alt/dsh-side-panel",
+      "category": "界面增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-tool-search",
+      "version": "0.1.3",
+      "description": "工具搜索与按需加载：渐进式 schema 披露，精简上下文",
+      "repo": "https://github.com/Letter2025/dsh-tool-search",
+      "category": "工具增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-tool-git",
+      "version": "0.1.2",
+      "description": "面向模型的结构化安全 Git 工具族（status/diff/log/branch 等）",
+      "repo": "https://github.com/lxj808624/dsh-tool-git",
+      "category": "工具增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-balance",
+      "version": "0.1.6",
+      "description": "输入框下方统计条实时显示账户余额与本次对话估算消耗",
+      "repo": "https://github.com/TwotwoPiggy/dsh-balance",
+      "category": "用量统计",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-spend",
+      "version": "0.2.0",
+      "description": "Token 用量多维统计与计费套餐自动识别",
+      "repo": "https://github.com/nonewind/dsh-spend",
+      "category": "用量统计",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-usage-stats",
+      "version": "0.1.11",
+      "description": "Token 用量分析：趋势、活跃热力图与模型分布",
+      "repo": "https://github.com/lanlandeli/dsh-usage-stats",
+      "category": "用量统计",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-mnemon",
+      "version": "0.1.0",
+      "description": "Mnemon 本地记忆系统：运行时记忆、可检索档案与记忆体",
+      "repo": "https://github.com/omdsh-dev/dsh-mnemon",
+      "category": "记忆增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "sage-mem",
+      "version": "0.1.3",
+      "description": "跨会话中文优先记忆插件，自动沉淀与检索历史上下文",
+      "repo": "https://github.com/gezi-wen/sage-mem",
+      "category": "记忆增强",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-vision",
+      "version": "0.2.0",
+      "description": "视觉工作记忆：截图、编号区域注册与图像理解",
+      "repo": "https://www.npmjs.com/package/dsh-vision",
+      "category": "视觉能力",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-remote",
+      "version": "0.5.2",
+      "description": "SSH 远程工作区：密码或密钥连接，直接在远程目录上作业",
+      "repo": "https://www.npmjs.com/package/dsh-remote",
+      "category": "远程协作",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-ssh",
+      "version": "0.2.0",
+      "description": "SSH 远程执行插件：ProxyJump 跳板链与 SFTP 文件系统",
+      "repo": "https://github.com/UynajGI/dsh-ssh",
+      "category": "远程协作",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-auto-approval",
+      "version": "0.1.0",
+      "description": "审批策略新增 auto 档：按规则自动放行工具调用",
+      "repo": "https://github.com/Andy8647/dsh-auto-approval",
+      "category": "自动化",
+      "compatibility": "verified"
+    },
+    {
+      "name": "dsh-rewind",
+      "version": "0.2.2",
+      "description": "回滚对话到更早的用户消息，并感知 Git 的文件还原",
+      "repo": "https://www.npmjs.com/package/dsh-rewind",
+      "category": "会话增强",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-session-health",
+      "version": "0.4.4",
+      "description": "会话健康检查：真实 token 表与续接/新建决策参考",
+      "repo": "https://www.npmjs.com/package/dsh-session-health",
+      "category": "用量统计",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-llm-fallbacks",
+      "version": "0.1.0-alpha.1",
+      "description": "LLM 请求持续失败时的供应商/模型自动回退链（alpha）",
+      "repo": "https://www.npmjs.com/package/dsh-llm-fallbacks",
+      "category": "自动化",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-themes",
+      "version": "0.1.3",
+      "description": "外观与主题插件：内置调色板、Open VSX 导入与明暗独立配置",
+      "repo": "https://www.npmjs.com/package/dsh-themes",
+      "category": "界面增强",
+      "compatibility": "community"
+    },
+    {
+      "name": "dsh-voice-webspeech",
+      "version": "0.1.0",
+      "description": "浏览器原生 Web Speech 语音输入：零服务端、零密钥",
+      "repo": "https://github.com/anweat/dsh-voice-webspeech",
+      "category": "界面增强",
+      "compatibility": "verified"
+    }
+  ]
+}

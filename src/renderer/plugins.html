@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>插件</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./plugins.css" />
+  </head>
+  <body>
+    <main class="pane">
+      <header class="pane__head">
+        <h1 class="pane__title">插件管理</h1>
+        <p class="pane__sub">
+          安装到 dsh 的 web profile（~/.dsh/profiles/web）
+          <span class="badge badge--warn">社区插件 · 兼容性以实际为准</span>
+        </p>
+      </header>
+
+      <!-- 区一：已安装 -->
+      <section class="zone zone--installed">
+        <h2 class="zone__title">已安装 <span class="zone__count" id="installedCount">0</span></h2>
+        <div class="zone__scroll" id="installedList" role="list"></div>
+      </section>
+
+      <!-- 区二：目录搜索 + 安装 -->
+      <section class="zone zone--catalog">
+        <div class="zone__head-row">
+          <h2 class="zone__title">可安装目录 <span class="zone__count" id="catalogCount">0</span></h2>
+          <input
+            class="input input--search"
+            id="catalogSearch"
+            type="search"
+            placeholder="搜索名称 / 描述 / 分类…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div class="zone__scroll" id="catalogList" role="list"></div>
+      </section>
+
+      <!-- 区三：进度区（订阅 OpProgress 的 plugin-install / plugin-remove） -->
+      <footer class="progress" id="progressZone" hidden>
+        <div class="progress__meta">
+          <span class="progress__label" id="progressLabel">…</span>
+          <button class="btn btn--restart" id="restartBtn" type="button" hidden>
+            立即重启运行时
+          </button>
+        </div>
+        <div class="progress__track">
+          <div class="progress__beam" id="progressBeam"></div>
+        </div>
+      </footer>
+    </main>
+
+    <script type="module" src="./plugins.js"></script>
+  </body>
+</html>
