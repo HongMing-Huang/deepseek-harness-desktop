@@ -1,5 +1,7 @@
 appId: com.deepseek.dsh-desktop
 productName: DSH Desktop
+# 产物命名含平台与架构，便区分单架构包
+artifactName: ${name}-${version}-${os}-${arch}.${ext}
 directories:
   buildResources: build
   output: release
@@ -15,17 +17,12 @@ asar: true
 asarUnpack: []
 mac:
   category: public.app-category.developer-tools
+  # arch 由 CLI（--arm64/--x64）控制，dist 脚本已按单架构瘦身运行时
   target:
-    - target: dmg
-      arch:
-        - arm64
-        - x64
-    - target: zip
-      arch:
-        - arm64
-        - x64
-  # 签名/公证为后续任务：当前不签名、不公证；图标在 P1 接入
-  # icon: build/icon.icns
+    - dmg
+    - zip
+  icon: build/icon.icns
+  # 签名/公证为后续任务：当前不签名、不公证
   hardenedRuntime: false
   gatekeeperAssess: false
   identity: null
@@ -38,4 +35,11 @@ dmg:
       y: 220
       type: link
       path: /Applications
-notarize: false
+linux:
+  target:
+    - deb
+    - AppImage
+  category: Development
+  icon: build/icons/512x512.png
+  maintainer: "DSH Desktop Contributors <dsh-desktop@users.noreply.github.com>"
+# electron-builder 26 已移除顶层 notarize 选项：未配置签名（identity: null）时公证不会执行

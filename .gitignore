@@ -3,5 +3,7 @@ out/
 release/
 dist/
 resources/runtime/
+# icns 中间产物（可由 build/icon.png 重新生成）
+build/icon.iconset/
 *.log
 .DS_Store

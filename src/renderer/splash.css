@@ -147,15 +147,13 @@ body {
     0 18px 40px -18px rgba(0, 0, 0, 0.9);
 }
 
-.brand__mono {
-  font-family: var(--sans);
-  font-size: 34px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  background: linear-gradient(120deg, #eef1ff 20%, var(--accent) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.brand__logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  /* 深底 logo 与容器背景融合，仅保留极淡的描边过渡 */
+  box-shadow: 0 0 0 1px rgba(232, 234, 240, 0.05);
 }
 
 .brand__ring {

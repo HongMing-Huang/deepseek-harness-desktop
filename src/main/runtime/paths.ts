@@ -1,8 +1,8 @@
 import { app } from 'electron'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir, arch as osArch, platform } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 
 /**
  * 内嵌运行时（Node / pnpm / dsh）的路径解析与子进程环境构建。
@@ -10,7 +10,8 @@ import { join } from 'node:path'
  * 目录约定（由 scripts/prepare-runtime.ts 产出）：
  *   <runtimeRoot>/
  *     node/<arch>/node          内嵌 Node 可执行文件
- *     pnpm/<arch>/pnpm          pnpm 独立可执行文件
+ *     pnpm/<arch>/pnpm          pnpm 可执行入口（shim 或 standalone 二进制，同名二选一）
+ *     pnpm/<arch>/pnpm.cjs      pnpm 主程序（shim 方案时存在）
  *     dsh/node_modules/@deepseek-ai/dsh/lib/bin.js   dsh CLI 入口
  *     dsh/version.json          版本清单
  *
@@ -20,7 +21,7 @@ import { join } from 'node:path'
 
 export type RuntimeArch = 'arm64' | 'x64'
 
-/** 当前宿主架构（仅支持 macOS arm64 / x64） */
+/** 当前宿主架构（arm64 / x64） */
 export function runtimeArch(): RuntimeArch {
   return osArch() === 'arm64' ? 'arm64' : 'x64'
 }
@@ -51,7 +52,7 @@ export function dshBinPath(): string {
   )
 }
 
-/** 内嵌 pnpm 可执行文件路径 */
+/** 内嵌 pnpm 可执行入口路径（shim 与 standalone 同名，存在即用） */
 export function bundledPnpmPath(): string {
   return join(runtimeRoot(), 'pnpm', runtimeArch(), 'pnpm')
 }
@@ -71,8 +72,26 @@ export interface RuntimeResolution {
   dshHome: string
 }
 
-/** 解析系统 PATH 中的 node，找不到返回 null */
+/**
+ * 解析系统 PATH 中的 node，找不到返回 null。
+ * 两段式：先 which（PATH 上优先，ENOENT 再试绝对路径）；
+ * 均未命中时用登录 shell 兜底（覆盖非交互环境 PATH 未继承的场景）。
+ */
 function findSystemNode(): string | null {
+  for (const whichBin of ['which', '/usr/bin/which']) {
+    try {
+      const r = spawnSync(whichBin, ['node'], {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      })
+      if (r.status === 0 && typeof r.stdout === 'string') {
+        const p = r.stdout.trim()
+        if (p.length > 0) return p
+      }
+    } catch {
+      // which 本身不可用（如 ENOENT），尝试下一个候选
+    }
+  }
   try {
     const out = execFileSync(process.env.SHELL || '/bin/zsh', ['-lc', 'command -v node'], {
       encoding: 'utf-8',
@@ -134,13 +153,13 @@ export function buildChildEnv(resolution?: RuntimeResolution): NodeJS.ProcessEnv
     prefixes.push(join(runtimeRoot(), 'pnpm', runtimeArch()))
   }
   if (prefixes.length > 0) {
-    env.PATH = [...prefixes, env.PATH ?? ''].filter(Boolean).join(':')
+    env.PATH = [...prefixes, env.PATH ?? ''].filter(Boolean).join(delimiter)
   }
   env.DSH_HOME = r.dshHome
   return env
 }
 
-/** 平台自检（仅 macOS 支持内嵌运行时） */
+/** 平台自检（macOS / Linux 支持内嵌运行时） */
 export function isSupportedPlatform(): boolean {
-  return platform() === 'darwin'
+  return platform() === 'darwin' || platform() === 'linux'
 }
