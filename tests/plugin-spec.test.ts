@@ -3,7 +3,12 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { resolveInstallSpec, ensureAllowBuilds } from '../src/main/runtime/plugins'
+import {
+  resolveInstallSpec,
+  ensureAllowBuilds,
+  specRepoName,
+  extractIgnoredBuildNames
+} from '../src/main/runtime/plugins'
 
 /**
  * 插件安装规格解析单测（GitHub 直装白名单校验）：
@@ -59,7 +64,7 @@ test('github 直装：spec 为空回退 npm 语义', () => {
   assert.equal(resolveInstallSpec('dsh-xxx', undefined, '   '), 'dsh-xxx')
 })
 
-/* ── allowBuilds 预放行（官方要求：git 托管插件先放行 prepare 构建脚本） ── */
+/* ── allowBuilds 预放行（pnpm 10 映射形态 name: true） ── */
 
 const PROFILE_TEMPLATE = 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n'
 
@@ -71,20 +76,21 @@ function tempProfileHome(): { home: string; profileDir: string } {
   return { home, profileDir }
 }
 
-test('ensureAllowBuilds：profile 无 workspace 文件时创建最小形态并放行', () => {
+test('ensureAllowBuilds：profile 无 workspace 文件时创建 pnpm10 映射形态', () => {
   const { home, profileDir } = tempProfileHome()
   try {
     const result = ensureAllowBuilds('dsh-auto-review')
     assert.equal(result.ok, true)
     const raw = readFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'utf-8')
     assert.ok(raw.includes('allowBuilds:'))
-    assert.ok(raw.includes('dsh-auto-review'))
+    assert.ok(raw.includes('dsh-auto-review: true'))
+    assert.ok(!raw.includes('- dsh-auto-review'), '不得写入旧版列表形态')
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
 })
 
-test('ensureAllowBuilds：追加到已有模板并保留原键', () => {
+test('ensureAllowBuilds：追加到已有模板并保留原键（映射形态）', () => {
   const { home, profileDir } = tempProfileHome()
   try {
     writeFileSync(join(profileDir, 'pnpm-workspace.yaml'), PROFILE_TEMPLATE, 'utf-8')
@@ -93,7 +99,7 @@ test('ensureAllowBuilds：追加到已有模板并保留原键', () => {
     assert.ok(raw.includes('packages:'))
     assert.ok(raw.includes('nodeLinker: hoisted'))
     assert.ok(raw.includes('autoInstallPeers: false'))
-    assert.ok(raw.includes('- dsh-auto-review'))
+    assert.ok(raw.includes('dsh-auto-review: true'))
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
@@ -106,7 +112,25 @@ test('ensureAllowBuilds：幂等（重复放行不产生重复条目）', () => 
     ensureAllowBuilds('dsh-auto-review')
     ensureAllowBuilds('dsh-auto-review')
     const raw = readFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'utf-8')
-    assert.equal((raw.match(/- dsh-auto-review/g) ?? []).length, 1)
+    assert.equal((raw.match(/dsh-auto-review: true/g) ?? []).length, 1)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('ensureAllowBuilds：pnpm 9 旧式列表自动迁移为映射', () => {
+  const { home, profileDir } = tempProfileHome()
+  try {
+    writeFileSync(
+      join(profileDir, 'pnpm-workspace.yaml'),
+      PROFILE_TEMPLATE + 'allowBuilds:\n  - legacy-plugin\n',
+      'utf-8'
+    )
+    ensureAllowBuilds('dsh-auto-review')
+    const raw = readFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'utf-8')
+    assert.ok(raw.includes('legacy-plugin: true'), '旧条目迁移为映射')
+    assert.ok(raw.includes('dsh-auto-review: true'))
+    assert.ok(!raw.includes('- legacy-plugin'), '旧列表形态已清除')
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
@@ -117,8 +141,26 @@ test('ensureAllowBuilds：scoped 包名原样写入', () => {
   try {
     ensureAllowBuilds('@omdsh-dev/dsh-annotation')
     const raw = readFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'utf-8')
-    assert.ok(raw.includes('- @omdsh-dev/dsh-annotation'))
+    assert.ok(raw.includes('@omdsh-dev/dsh-annotation: true'))
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
+})
+
+test('specRepoName：从两类直装规格推导仓库名', () => {
+  assert.equal(specRepoName('github:bill9109/dsh-101'), 'dsh-101')
+  assert.equal(
+    specRepoName('git+https://github.com/omdsh-dev/dsh-annotation.git#687f13dcf154'),
+    'dsh-annotation'
+  )
+  assert.equal(specRepoName('github:PerryLink/dsh-auto-review#main'), 'dsh-auto-review')
+  assert.equal(specRepoName('not-a-spec'), null)
+})
+
+test('extractIgnoredBuildNames：从 pnpm 拦截输出提取精确包名', () => {
+  assert.deepEqual(
+    extractIgnoredBuildNames('Ignored build scripts: dsh-auto-review, @scope/other. Run "pnpm approve-builds"'),
+    ['dsh-auto-review', '@scope/other']
+  )
+  assert.deepEqual(extractIgnoredBuildNames('无关输出'), [])
 })

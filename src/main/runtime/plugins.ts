@@ -176,39 +176,77 @@ function nodeModulesPackageDir(name: string): string {
   return join(profileDir(), 'node_modules', ...name.split('/'))
 }
 
+/** 从直装规格推导仓库名（github:owner/repo 或 git+https://…/repo.git#ref → repo；非法返回 null） */
+export function specRepoName(spec: string): string | null {
+  const match = /^(?:git\+https:\/\/github\.com\/|github:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?(?:#[A-Za-z0-9][A-Za-z0-9_.~/-]*)?$/.exec(
+    spec.trim()
+  )
+  return match ? match[2] : null
+}
+
+/** YAML 键安全内联（普通包名无需引号；异常字符用 JSON 引号兜底） */
+function yamlKey(name: string): string {
+  return /^[A-Za-z0-9_@./-]+$/.test(name) ? name : JSON.stringify(name)
+}
+
 /* ── GitHub 直装：allowBuilds 预放行 ── */
 
 /**
- * 把包名写入 profile 的 pnpm-workspace.yaml `allowBuilds`（不存在则补键，已存在则幂等）。
- * 官方要求：git 托管插件安装时 pnpm 默认拦截其 prepare 构建脚本（ERR_PNPM_IGNORED_BUILDS），
+ * 把包名写入 profile 的 pnpm-workspace.yaml `allowBuilds`（pnpm 10 映射形态
+ * `name: true`；存在旧版 pnpm 9 列表形态时自动迁移为映射），不存在则补键、已存在则幂等。
+ * 官方要求：git 托管插件安装时 pnpm 默认拦截其 prepare 构建脚本（Ignored build scripts），
  * dsh 的指引即「把 pnpm 打印的 key 加入 allowBuilds 后重跑」——这里按官方指引自动化。
  * - 文件缺失：以 profile 模板最小形态创建；
  * - 解析失败：文本追加 allowBuilds 键（保持可恢复，不覆盖原文件）。
  */
 export function ensureAllowBuilds(packageName: string): { ok: boolean; message?: string } {
   const file = join(profileDir(), 'pnpm-workspace.yaml')
-  const fallbackKey = 'allowBuilds:\n  - ' + packageName + '\n'
   try {
     if (!existsSync(file)) {
-      writeFileSync(file, 'packages:\n  - .\n\nnodeLinker: hoisted\n\n' + fallbackKey, 'utf-8')
+      writeFileSync(
+        file,
+        `packages:\n  - .\n\nnodeLinker: hoisted\n\nallowBuilds:\n  ${yamlKey(packageName)}: true\n`,
+        'utf-8'
+      )
       return { ok: true }
     }
     const raw = readFileSync(file, 'utf-8')
     const doc = YAML.parse(raw) as Record<string, unknown> | null
     if (doc && typeof doc === 'object') {
-      const list = Array.isArray(doc['allowBuilds']) ? (doc['allowBuilds'] as unknown[]) : []
-      if (!list.some((v) => v === packageName)) {
-        list.push(packageName)
-        doc['allowBuilds'] = list
+      const current = doc['allowBuilds']
+      let map: Record<string, boolean> = {}
+      if (Array.isArray(current)) {
+        // pnpm 9 旧式列表 → 迁移为 pnpm 10 映射
+        for (const item of current) {
+          if (typeof item === 'string') map[item] = true
+        }
+      } else if (current && typeof current === 'object') {
+        map = { ...(current as Record<string, boolean>) }
       }
+      map[packageName] = true
+      doc['allowBuilds'] = map
       writeFileSync(file, YAML.stringify(doc), 'utf-8')
       return { ok: true }
     }
-    writeFileSync(file, raw + '\n' + fallbackKey, 'utf-8')
+    writeFileSync(
+      file,
+      raw.replace(/\s*$/, '') + `\n\nallowBuilds:\n  ${yamlKey(packageName)}: true\n`,
+      'utf-8'
+    )
     return { ok: true }
   } catch (err) {
     return { ok: false, message: `更新 allowBuilds 失败：${err instanceof Error ? err.message : String(err)}` }
   }
+}
+
+/** 从 pnpm 输出尾部提取被拦截构建的包名（"Ignored build scripts: a, b." → [a, b]） */
+export function extractIgnoredBuildNames(output: string): string[] {
+  const match = /Ignored build scripts:\s*([^.\n]+)\./.exec(output)
+  if (!match) return []
+  return match[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^[@A-Za-z0-9_./-]+$/.test(s))
 }
 
 /**
@@ -234,12 +272,20 @@ export async function installPlugin(
     return { ok: false, message: err instanceof Error ? err.message : String(err) }
   }
 
-  // GitHub 直装：官方要求先放行其 prepare 构建脚本（pnpm allowBuilds），否则必失败
-  if (spec && spec.trim().length > 0) {
-    const allowed = ensureAllowBuilds(name)
-    if (!allowed.ok) {
-      clearOperation()
-      return { ok: false, message: allowed.message }
+  // GitHub 直装：官方要求先放行其 prepare 构建脚本（pnpm allowBuilds），否则必失败。
+  // 包名可能与仓库名不一致（git 依赖的真实包名以仓库 manifest 为准）——两者都放行，
+  // 安装失败且输出含 Ignored build scripts 时再按 pnpm 打印的精确 key 放行并重试一次。
+  const isGitInstall = Boolean(spec && spec.trim().length > 0)
+  if (isGitInstall) {
+    const keys = [name]
+    const repoName = specRepoName(target)
+    if (repoName && repoName !== name) keys.push(repoName)
+    for (const key of keys) {
+      const allowed = ensureAllowBuilds(key)
+      if (!allowed.ok) {
+        clearOperation()
+        return { ok: false, message: allowed.message }
+      }
     }
   }
 
@@ -256,8 +302,29 @@ export async function installPlugin(
     })
     return { ok: true, message: `${name} 安装完成，重启运行时后生效` }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
+    let message = err instanceof Error ? err.message : String(err)
     logger.warn(`插件安装失败：${target}：${message}`)
+    // 一次放行重试：按 pnpm 输出的精确包名补 allowBuilds（键名不匹配的兜底），随后原样重试
+    if (isGitInstall && message.includes('Ignored build scripts')) {
+      for (const key of extractIgnoredBuildNames(message)) {
+        ensureAllowBuilds(key)
+      }
+      broadcastOpProgress({ op, state: 'update', message: `已放行构建脚本，正在重试安装 ${name}…` })
+      try {
+        await runPluginCommand('add', target, op)
+        logger.info(`插件安装完成（放行重试）：${target}`)
+        broadcastOpProgress({
+          op,
+          state: 'done',
+          percent: 100,
+          message: `${name} 安装完成，重启运行时后生效`
+        })
+        return { ok: true, message: `${name} 安装完成，重启运行时后生效` }
+      } catch (retryErr) {
+        message = retryErr instanceof Error ? retryErr.message : String(retryErr)
+        logger.warn(`插件安装重试失败：${target}：${message}`)
+      }
+    }
     broadcastOpProgress({ op, state: 'error', message })
     return { ok: false, message }
   } finally {
@@ -393,14 +460,25 @@ export async function updateAllPlugins(): Promise<{ ok: boolean; message?: strin
     return { ok: false, message: err instanceof Error ? err.message : String(err) }
   }
 
-  // git 直装插件在 update 时同样会被 pnpm 拦截构建：先按目录来源统一预放行
+  // git 直装插件在 update 时同样会被 pnpm 拦截构建：按两类来源统一预放行——
+  // ①目录 source=github 的已装插件；②profile 依赖值为 git 规格的条目（dshfind 等外源直装）。
   try {
     const [installed, catalog] = await Promise.all([listInstalledPlugins(), getPluginCatalog()])
     const githubNames = new Set(
       catalog.filter((c) => c.source === 'github').map((c) => c.name)
     )
+    const gitSpecDeps: string[] = []
+    try {
+      const raw = await readFile(join(profileDir(), 'package.json'), 'utf-8')
+      const pkg = JSON.parse(raw) as { dependencies?: Record<string, string> }
+      for (const [depName, range] of Object.entries(pkg.dependencies ?? {})) {
+        if (/^(github:|git\+https:)/.test(range ?? '')) gitSpecDeps.push(depName)
+      }
+    } catch {
+      // profile 无依赖清单：仅按目录预放行
+    }
     for (const plugin of installed) {
-      if (githubNames.has(plugin.name)) {
+      if (githubNames.has(plugin.name) || gitSpecDeps.includes(plugin.name)) {
         const allowed = ensureAllowBuilds(plugin.name)
         if (!allowed.ok) {
           clearOperation()
