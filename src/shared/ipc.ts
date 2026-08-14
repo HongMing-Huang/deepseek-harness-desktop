@@ -39,18 +39,13 @@ export const IpcChannels = {
   /** 配置：合并保存应用偏好（userData/preferences.json） */
   ConfigSavePreferences: 'config:save-preferences',
 
-  /** Token：用量序列查询（handler 由 Token 阶段实现） */
-  TokenGetSeries: 'token:get-series',
-
   /* ── main → renderer（event）── */
   /** 运行时状态推送 */
   RuntimeStatus: 'runtime:status',
   /** 长操作进度推送（boot/update/插件/密钥/模型） */
   OpProgress: 'op:progress',
   /** 更新器状态推送（设置窗口展示） */
-  UpdaterStatus: 'updater:status',
-  /** Token 采样推送（由 Token 阶段实现） */
-  TokenSample: 'token:sample'
+  UpdaterStatus: 'updater:status'
 } as const
 
 /* ───────────────────────── 运行时 ───────────────────────── */
@@ -207,36 +202,13 @@ export interface UpdaterCheckResult {
   message?: string
 }
 
-/* ───────────────────────── 插件 / Token（后续阶段实现） ── */
+/* ───────────────────────── 插件 ───────────────────────── */
 
 export interface PluginEntry {
   name: string
   version?: string
   enabled: boolean
   description?: string
-}
-
-/** 用量历史样本点：t 为分钟桶起点（ms epoch），tokens 为该分钟净增 token 数 */
-export interface TokenSeriesPoint {
-  t: number
-  tokens: number
-}
-
-export interface TokenSeries {
-  points: TokenSeriesPoint[]
-}
-
-/** Token 采样推送载荷（与 token-pipeline.ts 的 TokenSamplePayload 同形，渲染层直接消费） */
-export interface TokenSamplePayload {
-  /** 管道是否仍在产出数据（停用时 UI 显示占位） */
-  active: boolean
-  aggregate: {
-    totals: { uncachedInput: number; output: number; cacheRead: number; cacheWrite: number }
-    context: { pressureTokens: number; contextWindow: number; surfaceTokens: number } | null
-    updatedAt: number
-  } | null
-  /** 最近 24h 分钟样本（供侧栏即时绘图） */
-  recent: TokenSeriesPoint[]
 }
 
 /* ───────────────────────── preload API 白名单 ───────────────────────── */
@@ -267,13 +239,9 @@ export interface DeepseekApi {
   saveModel(model: string): Promise<{ ok: boolean; message?: string }>
   savePreferences(patch: Partial<Preferences>): Promise<Preferences>
 
-  /* Token（handler 由 Token 阶段实现） */
-  getTokenSeries(range?: string): Promise<TokenSeries>
-
   /* 事件订阅（返回取消函数） */
   onStatus(listener: (status: RuntimeStatus) => void): () => void
   onOpProgress(listener: (progress: OpProgress) => void): () => void
-  onTokenSample(listener: (sample: TokenSamplePayload) => void): () => void
 }
 
 declare global {

@@ -12,13 +12,11 @@ import {
   type UpdaterStatusPayload
 } from '../shared/ipc'
 import type { PluginCatalogEntry } from './runtime/plugins'
-import type { HistoryPoint } from './token-metrics'
-import type { TokenSamplePayload } from './token-pipeline'
 
 /**
  * 集中式 IPC registry：所有 handler 在此注册，
  * 通道名统一来自 shared/ipc.ts，避免散落字符串。
- * 依赖（supervisor / config / updater / plugins / token）经 IpcContext 构造注入，不做全局散落。
+ * 依赖（supervisor / config / updater / plugins）经 IpcContext 构造注入，不做全局散落。
  */
 
 export interface IpcContext {
@@ -38,9 +36,6 @@ export interface IpcContext {
   getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
   installPlugin(name: string, version?: string): Promise<{ ok: boolean; message?: string }>
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
-
-  /* Token（token-pipeline.ts 实现）：range 为 '1h' | 'today' | '7d' 或毫秒数 */
-  getTokenSeries(range?: string): Promise<{ points: HistoryPoint[] }>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>
@@ -76,9 +71,6 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     ctx.installPlugin(name, version)
   )
   ipcMain.handle(IpcChannels.PluginsRemove, (_e, name: string) => ctx.removePlugin(name))
-
-  /* Token 用量（token-pipeline.ts） */
-  ipcMain.handle(IpcChannels.TokenGetSeries, (_e, range?: string) => ctx.getTokenSeries(range))
 }
 
 /* ── 事件广播：向所有应用自有页面推送 ── */
@@ -86,8 +78,9 @@ export function registerIpcHandlers(ctx: IpcContext): void {
 /**
  * 广播目标 = 全部应用自有页面的 webContents：
  * - BrowserWindow 页面（splash / settings / plugins）；
- * - WebContentsView 页面（activity 侧栏）—— BrowserWindow.getAllWindows()
- *   遍历不到子视图，因此改用 webContents.getAllWebContents() 按 URL 过滤：
+ * - 后续如新增 WebContentsView 页面同样被覆盖 ——
+ *   BrowserWindow.getAllWindows() 遍历不到子视图，因此改用
+ *   webContents.getAllWebContents() 按 URL 过滤：
  *   打包态 file: 协议自有页面 + dev 态本地 dev server 前缀；
  *   dsh web 视图（远程内容）与其它来源一律排除，避免向第三方页面泄漏事件。
  */
@@ -117,9 +110,4 @@ export function broadcastOpProgress(progress: OpProgress): void {
 /** 向全部自有页面广播更新器状态 */
 export function broadcastUpdaterStatus(status: UpdaterStatusPayload): void {
   broadcast(IpcChannels.UpdaterStatus, status)
-}
-
-/** 向全部自有页面广播 Token 采样（活动侧栏实时更新） */
-export function broadcastTokenSample(payload: TokenSamplePayload): void {
-  broadcast(IpcChannels.TokenSample, payload)
 }

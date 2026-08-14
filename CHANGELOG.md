@@ -16,6 +16,10 @@
 
 - `prepare-runtime` 新增 dsh 官方来源校验：安装（含幂等跳过）后验证包名/钉死版本/`repository` 指向 `deepseek-ai/deepseek-harness`，并核对 npm registry 元数据维护者属 deepseek-ai；任一不匹配即构建失败，安装日志打印来源声明。
 
+#### 移除
+
+- removed: token activity sidebar (use official web usage view)——下线 Token 活动侧栏全链路：`activity` 页面与样式脚本、`token-pipeline` 采样管线与 `token-metrics` 纯函数、`TokenGetSeries`/`TokenSample` IPC 通道与类型、应用菜单入口及对应单测/E2E 场景；用量统计请使用 dsh 官方 Web 自带视图。
+
 #### 变更
 
 - 品牌与命名统一：产品名由 `DSH Desktop` 改为 `Deepseek`，仓库名由 `dsh-desktop` 改为 `deepseek-harness-desktop`；同步更新包名、appId（`com.deepseek.harness-desktop`）、窗口/菜单/页面标题、官网下载链接、发布流水线产物命名与文档（内嵌 dsh 运行时及 `~/.dsh` 数据目录等上游命名保持不变）。

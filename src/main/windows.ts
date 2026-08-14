@@ -11,10 +11,9 @@ import { join } from 'node:path'
 /**
  * 窗口与视图布局的单一职责小模块：
  * - 主窗口：splash 承载于窗口自身 webContents；运行时就绪后改为
- *   contentView 双子视图 —— dshWebView（全幅或左侧，加载 dsh web，无 preload）
- *   + activityView（右侧 260px Token 活动图，带 preload）；
+ *   contentView 单子视图 —— dshWebView（全幅，加载 dsh web，无 preload）；
  * - 设置 / 插件窗口（单例，重复打开时聚焦）；
- * - 应用菜单（设置入口 Cmd/Ctrl+,、工具→插件…、查看→Token 活动图）。
+ * - 应用菜单（设置入口 Cmd/Ctrl+,、工具→插件…）。
  */
 
 let settingsWindow: BrowserWindow | null = null
@@ -22,12 +21,8 @@ let pluginsWindow: BrowserWindow | null = null
 
 /* ── 主窗口子视图（模块级单例：应用仅一个主窗口，closed 时清理） ── */
 
-const ACTIVITY_SIDEBAR_WIDTH = 260
-
 let mainWindow: BrowserWindow | null = null
 let dshWebView: WebContentsView | null = null
-let activityView: WebContentsView | null = null
-let sidebarVisible = true
 /** 当前 dsh web 监听端口（就绪后由 showDshWebView 解析；外链守卫比对用） */
 let currentDshPort: number | null = null
 
@@ -77,7 +72,7 @@ function isLocalDshWebUrl(url: string): boolean {
   }
 }
 
-/** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换双子视图布局） */
+/** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换 dsh web 视图） */
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
@@ -107,7 +102,6 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('closed', () => {
     dshWebView = null
-    activityView = null
     if (mainWindow === win) mainWindow = null
   })
 
@@ -117,10 +111,9 @@ export function createMainWindow(): BrowserWindow {
 }
 
 /**
- * 运行时就绪：创建（或复用）双子视图并加载 dsh web。
- * - dshWebView：远程内容，无 preload、强隔离、沙箱；沿用外链拦截策略；
- * - activityView：自有页面 activity.html，带 preload（window.api 白名单）；
- * 幂等：重复调用（重启运行时）只重载 dshWebView 的地址。
+ * 运行时就绪：创建（或复用）dsh web 全幅视图并加载 url。
+ * dshWebView：远程内容，无 preload、强隔离、沙箱；沿用外链拦截策略；
+ * 幂等：重复调用（重启运行时）只重载视图地址。
  */
 export function showDshWebView(win: BrowserWindow, url: string): void {
   if (win.isDestroyed()) return
@@ -151,28 +144,12 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
     content.addChildView(dshWebView)
   }
 
-  if (!activityView) {
-    activityView = new WebContentsView({
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-        webviewTag: false
-      }
-    })
-    void loadViewPage(activityView, 'activity.html')
-  }
-  if (sidebarVisible && !content.children.includes(activityView)) {
-    content.addChildView(activityView)
-  }
-
   void dshWebView.webContents.loadURL(url)
   layoutMainViews()
 }
 
 /**
- * 运行时就绪后意外退出：移除双子视图，露出主窗口自身 webContents
+ * 运行时就绪后意外退出：移除 dsh web 视图，露出主窗口自身 webContents
  * 的 splash 错误卡（依赖广播可达，渲染层展示重试按钮）。
  */
 export function showRuntimeErrorOverlay(): void {
@@ -181,62 +158,15 @@ export function showRuntimeErrorOverlay(): void {
   if (dshWebView && content.children.includes(dshWebView)) {
     content.removeChildView(dshWebView)
   }
-  if (activityView && content.children.includes(activityView)) {
-    content.removeChildView(activityView)
-  }
 }
 
-/** 视图页面加载（dev server / 打包文件两种形态） */
-async function loadViewPage(view: WebContentsView, page: string): Promise<void> {
-  const url = pageUrl(page)
-  if (url.startsWith('http')) {
-    await view.webContents.loadURL(url)
-  } else {
-    await view.webContents.loadFile(url)
-  }
-}
-
-/** 按侧栏开关重算两个子视图 bounds（侧栏开=右侧 260px，关=dsh 全幅） */
+/** dsh web 视图铺满主窗口内容区（resize / 最大化 / 全屏均触发重排） */
 function layoutMainViews(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
   const [width, height] = mainWindow.getContentSize()
-
   if (dshWebView) {
-    const mainWidth = sidebarVisible ? Math.max(0, width - ACTIVITY_SIDEBAR_WIDTH) : width
-    dshWebView.setBounds({ x: 0, y: 0, width: mainWidth, height })
+    dshWebView.setBounds({ x: 0, y: 0, width, height })
   }
-
-  if (activityView && mainWindow) {
-    const content = mainWindow.contentView
-    // WebContentsView 无 getParentView：以宿主子视图列表判断挂载态
-    const attached = content.children.includes(activityView)
-    if (sidebarVisible) {
-      if (!attached) {
-        content.addChildView(activityView)
-      }
-      activityView.setBounds({
-        x: Math.max(0, width - ACTIVITY_SIDEBAR_WIDTH),
-        y: 0,
-        width: ACTIVITY_SIDEBAR_WIDTH,
-        height
-      })
-    } else if (attached) {
-      // 关闭侧栏：移出视图树（保留 webContents，重开即恢复）
-      content.removeChildView(activityView)
-    }
-  }
-}
-
-/** 切换 Token 活动侧栏（菜单勾选项调用），返回切换后的可见状态 */
-export function toggleActivitySidebar(): boolean {
-  sidebarVisible = !sidebarVisible
-  layoutMainViews()
-  return sidebarVisible
-}
-
-/** 侧栏当前可见状态（构建菜单勾选态用） */
-export function isActivitySidebarVisible(): boolean {
-  return sidebarVisible
 }
 
 /* ── 设置窗口（单例） ── */
@@ -307,7 +237,7 @@ export function openPluginsWindow(): void {
 
 /* ── 应用菜单 ── */
 
-/** 应用菜单：设置 / 插件 / Token 活动图入口 + 基础编辑能力（输入框复制粘贴必需） */
+/** 应用菜单：设置 / 插件入口 + 基础编辑能力（输入框复制粘贴必需） */
 export function setupAppMenu(): void {
   const isMac = process.platform === 'darwin'
   const isDev = Boolean(process.env['ELECTRON_RENDERER_URL'])
@@ -342,18 +272,7 @@ export function setupAppMenu(): void {
     submenu: [{ label: '插件…', click: () => openPluginsWindow() }]
   }
 
-  const viewItems: MenuItemConstructorOptions[] = [
-    {
-      id: 'toggle-activity-sidebar',
-      label: 'Token 活动图',
-      type: 'checkbox',
-      checked: isActivitySidebarVisible(),
-      click: (menuItem) => {
-        menuItem.checked = toggleActivitySidebar()
-      }
-    },
-    { type: 'separator' }
-  ]
+  const viewItems: MenuItemConstructorOptions[] = []
   if (isDev) {
     viewItems.push({ role: 'reload', label: '重新加载' })
   }

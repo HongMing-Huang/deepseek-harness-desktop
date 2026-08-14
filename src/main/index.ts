@@ -7,7 +7,6 @@ import {
   registerIpcHandlers,
   broadcastStatus,
   broadcastOpProgress,
-  broadcastTokenSample,
   type IpcContext
 } from './ipc'
 import { classifyStartupError } from './runtime/error-classifier'
@@ -15,14 +14,12 @@ import { repairPort } from './runtime/port-doctor'
 import {
   bundledDshVersion,
   cleanupSideloadRuntimes,
-  dshHome,
   readCurrentSideloadVersion,
   resolveRuntime
 } from './runtime/paths'
 import * as config from './config'
 import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay } from './windows'
 import { logger } from './logger'
-import { TokenPipeline } from './token-pipeline'
 import * as plugins from './runtime/plugins'
 import type {
   ConfigState,
@@ -36,7 +33,6 @@ import type {
 let mainWindow: BrowserWindow | null = null
 const supervisor = new ProcessSupervisor()
 let updater: RuntimeUpdater | null = null
-let tokenPipeline: TokenPipeline | null = null
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
 /** 退出流程已发起（before-quit 二次进入直接 app.exit，防死循环） */
 let quitRequested = false
@@ -83,11 +79,9 @@ function attachSupervisorListeners(): void {
       void updater.noteBootSuccess()
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
-      // 就绪后切换为双子视图布局：dshWebView（无 preload）+ activityView（Token 侧栏）
+      // 就绪后切换 dsh web 全幅视图（无 preload，强隔离）
       showDshWebView(mainWindow, url)
     }
-    // Token 管道随运行时一起工作（重复 start 幂等）
-    tokenPipeline?.start()
   })
 
   supervisor.on('progress', ({ stage, message }) => {
@@ -119,8 +113,6 @@ function attachSupervisorListeners(): void {
   })
 
   supervisor.on('exit', ({ code, signal }) => {
-    // 运行时退出即停止 Token 管道（不再产出采样）
-    tokenPipeline?.stop()
     // 仅就绪后的意外退出才作崩溃处理（启动期退出已由 error 事件覆盖；
     // 更新热切换 / 手动重启 / 端口修复 / 退出流程中的 stop 属预期内停止）
     const expected =
@@ -153,7 +145,6 @@ async function bootstrapRuntime(): Promise<void> {
     if (mainWindow && !mainWindow.isDestroyed()) {
       showDshWebView(mainWindow, url)
     }
-    tokenPipeline?.start()
     return
   }
 
@@ -299,13 +290,6 @@ function buildIpcContext(): IpcContext {
     installPlugin: (name: string, version?: string) => plugins.installPlugin(name, version),
     removePlugin: (name: string) => plugins.removePlugin(name),
 
-    /* Token 用量：'1h' | 'today' | '7d'（或毫秒数），默认近 1 小时 */
-    getTokenSeries: (range?: string) => {
-      const ms = rangeToMs(range)
-      const points = tokenPipeline ? tokenPipeline.getSeries(ms) : []
-      return Promise.resolve({ points })
-    },
-
     checkUpdater: () =>
       updater ? updater.checkNow() : Promise.resolve({
         state: 'unavailable' as const,
@@ -316,25 +300,6 @@ function buildIpcContext(): IpcContext {
       updater
         ? updater.applyUpdate(version)
         : Promise.resolve({ ok: false, message: '更新服务尚未初始化' })
-  }
-}
-
-/** 区间参数解析：'1h' | 'today' | '7d' 或毫秒数字符串，非法值回退 1 小时 */
-function rangeToMs(range?: string): number {
-  switch (range) {
-    case '1h':
-      return 60 * 60 * 1000
-    case 'today': {
-      const now = new Date()
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      return Math.max(60 * 1000, now.getTime() - start.getTime())
-    }
-    case '7d':
-      return 7 * 24 * 60 * 60 * 1000
-    default: {
-      const n = Number(range)
-      return Number.isFinite(n) && n > 0 ? n : 60 * 60 * 1000
-    }
   }
 }
 
@@ -361,13 +326,6 @@ app.whenReady().then(async () => {
   // 更新器：晚于清理初始化，保证调度开始前目录已是受控状态
   updater = new RuntimeUpdater(supervisor)
 
-  // Token 用量管道：projcache 监听 + 采样落盘 + 广播（start 由 supervisor ready 联动）
-  tokenPipeline = new TokenPipeline({
-    projCachePath: join(dshHome(), 'storages', 'session_projcache.json'),
-    historyPath: join(app.getPath('userData'), 'token-history.json'),
-    onSample: broadcastTokenSample
-  })
-
   registerIpcHandlers(buildIpcContext())
   setupAppMenu()
   mainWindow = createMainWindow()
@@ -389,7 +347,6 @@ app.on('window-all-closed', () => {
 
 async function shutdown(): Promise<void> {
   logger.info('正在停止 dsh web 子进程…')
-  tokenPipeline?.stop()
   // 插件操作进行中：先中止 pnpm 子进程，避免退出后残留
   if (plugins.hasActivePluginOperation()) {
     plugins.abortActivePluginOperation()

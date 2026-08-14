@@ -52,8 +52,7 @@ export default defineConfig({
         input: {
           splash: resolve(__dirname, 'src/renderer/splash.html'),
           settings: resolve(__dirname, 'src/renderer/settings.html'),
-          plugins: resolve(__dirname, 'src/renderer/plugins.html'),
-          activity: resolve(__dirname, 'src/renderer/activity.html')
+          plugins: resolve(__dirname, 'src/renderer/plugins.html')
         }
       }
     }

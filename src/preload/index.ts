@@ -5,7 +5,6 @@ import {
   type OpProgress,
   type Preferences,
   type RuntimeStatus,
-  type TokenSamplePayload,
   type UpdaterStatusPayload
 } from '../shared/ipc'
 
@@ -53,18 +52,13 @@ const api: DeepseekApi = {
   savePreferences: (patch: Partial<Preferences>) =>
     ipcRenderer.invoke(IpcChannels.ConfigSavePreferences, patch),
 
-  /* Token：handler 由 Token 阶段实现 */
-  getTokenSeries: (range?: string) => ipcRenderer.invoke(IpcChannels.TokenGetSeries, range),
-
   /* 事件订阅 */
   onStatus: (listener: (status: RuntimeStatus) => void) =>
     subscribe<RuntimeStatus>(IpcChannels.RuntimeStatus, listener),
   onOpProgress: (listener: (progress: OpProgress) => void) =>
     subscribe<OpProgress>(IpcChannels.OpProgress, listener),
   onUpdaterStatus: (listener: (status: UpdaterStatusPayload) => void) =>
-    subscribe<UpdaterStatusPayload>(IpcChannels.UpdaterStatus, listener),
-  onTokenSample: (listener: (sample: TokenSamplePayload) => void) =>
-    subscribe<TokenSamplePayload>(IpcChannels.TokenSample, listener)
+    subscribe<UpdaterStatusPayload>(IpcChannels.UpdaterStatus, listener)
 }
 
 /**

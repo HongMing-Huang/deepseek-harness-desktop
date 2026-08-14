@@ -13,11 +13,9 @@ src/
 ├── main/                      # 主进程
 │   ├── index.ts               # 应用生命周期、窗口管理、运行时引导、退出清理
 │   ├── ipc.ts                 # IPC 集中注册表（handler 统一挂载 + 广播覆盖全部自有 webContents）
-│   ├── windows.ts             # 主窗口 / dsh web 视图 / activity 侧栏视图管理与外链守卫
+│   ├── windows.ts             # 主窗口 / dsh web 全幅视图管理与外链守卫
 │   ├── config.ts              # ~/.dsh 配置读写（凭据单键合并、偏好串行化）
 │   ├── logger.ts              # 主进程文件日志（userData/logs/main.log）
-│   ├── token-metrics.ts       # projcache 解析与历史序列纯函数
-│   ├── token-pipeline.ts      # Token 分钟采样管线（projcache 监听 + 瞬态异常重试）
 │   └── runtime/
 │       ├── paths.ts           # 内嵌运行时路径解析与子进程环境构建、侧载目录清理
 │       ├── process-supervisor.ts  # dsh web 子进程托管（端口探测/探活/优雅停止）
@@ -31,7 +29,6 @@ src/
 │   └── index.ts               # contextBridge 白名单（仅暴露 window.api）
 ├── renderer/                  # 渲染进程（纯原生 JS，无框架）
 │   ├── splash.html/css/js     # 启动等待页（首启引导 + 状态订阅 + 错误分类卡 + 诊断信息）
-│   ├── activity.html/css/js   # Token 活动侧栏（四分类/上下文压力/趋势图）
 │   ├── settings.html/js       # 设置窗口（默认模型/凭据/镜像/壳更新仓库）
 │   ├── plugins.html/js        # 插件管理窗口（安装/卸载/进度）
 │   └── assets/                # 静态资产（logo 等）
@@ -40,9 +37,8 @@ src/
     └── versions.ts            # 内嵌运行时版本清单（dsh / pnpm / node）
 
 tests/
-├── token-metrics.test.ts      # projcache 解析与历史序列单测
 ├── plugin-progress.test.ts    # pnpm 输出进度解析单测
-└── e2e/run-e2e.mjs            # E2E（playwright-core CDP，含 Token 数据流断言）
+└── e2e/run-e2e.mjs            # E2E（playwright-core CDP，引导/进度/配置/插件/更新）
 ```
 
 运行时布局（由 `scripts/prepare-runtime.ts` 产出，打包进 `extraResources`）：
@@ -145,7 +141,6 @@ git push -u origin main
 | 位置 | 内容 | 说明 |
 | --- | --- | --- |
 | macOS `~/Library/Application Support/Deepseek/runtimes/`（Linux `~/.config/Deepseek/runtimes/`） | dsh 侧载更新目录 | 删除后下次启动自动回用内嵌版本 |
-| `.../Deepseek/token-history.json` | Token 活动历史（分钟采样） | 删除后活动图重新累计 |
 | `.../Deepseek/preferences.json` | 应用偏好（默认模型/镜像/更新仓库等） | 删除后恢复默认值 |
 | `~/.dsh/` | dsh 自身配置（凭据 `.credentials.yaml` 等） | 由 dsh 管理，卸载应用不涉及 |
 | `.../Deepseek/logs/main.log` | 主进程日志 | 排障时查看，可安全删除 |

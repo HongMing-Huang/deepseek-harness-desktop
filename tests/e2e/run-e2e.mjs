@@ -10,8 +10,8 @@
  *      （生产形态：无 ELECTRON_RENDERER_URL，页面读 out/renderer）。
  *   3. 等 CDP 端口就绪后 chromium.connectOverCDP 连接，对全部 page target
  *      挂 console / pageerror 监听（断言失败时输出辅助诊断）。
- *   4. 依次驱动并断言六个场景（a 首启引导 / b 启动进度与 web / c Token
- *      侧栏 / d 设置与模型 / e 插件目录与并发锁 / f 更新检查降级），
+ *   4. 依次驱动并断言五个场景（a 首启引导 / b 启动进度与 web /
+ *      c 设置与模型 / d 插件目录与并发锁 / e 更新检查降级），
  *      截图落 tests/e2e/artifacts/。
  *   5. 优雅退出：SIGTERM Electron（主进程 before-quit 会停掉 dsh web），
  *      超时强杀；删除全部临时目录。
@@ -21,7 +21,7 @@
  * 退出码：全部通过 0，任一断言失败 1。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -256,170 +256,60 @@ try {
     JSON.stringify(bootEvents2)
   )
   assertOk(bootEvents2.some((e) => e.state === 'done'), 'b6 restart 轮 OpProgress(boot) 收到 done', JSON.stringify(bootEvents2))
-
-  /* ════════ Step c：Token 侧边栏 ════════ */
-  log('— Step c：Token 活动侧栏 —')
-  const activityPage = await waitFor(() => findPage((u) => u.includes('activity.html')), {
-    timeoutMs: 60_000,
-    label: 'activity.html 侧栏视图 target'
-  })
-  await activityPage.waitForLoadState('domcontentloaded')
-  const placeholderVisible = await waitFor(
-    () => activityPage.evaluate(() => {
-      const el = document.getElementById('chartPlaceholder')
-      return el && !el.hidden && el.offsetParent !== null
-    }),
-    { timeoutMs: 30_000, label: '无数据时「暂无数据」占位可见' }
-  )
-  assertOk(Boolean(placeholderVisible), 'c1 侧栏显示「暂无数据」占位（不报错）')
-
-  const tokenProbe = await activityPage.evaluate(async () => {
-    if (!window.api) return { api: false }
-    const series = await window.api.getTokenSeries()
-    return { api: true, points: series.points.length }
-  })
-  assertOk(tokenProbe.api === true, 'c2 activity 视图 window.api 可用（preload 注入）')
-  assertOk(
-    typeof tokenProbe.points === 'number' && tokenProbe.points === 0,
-    'c3 getTokenSeries 空数据返回 points=[]',
-    `points=${tokenProbe.points}`
-  )
-  await activityPage.screenshot({ path: join(artifactsDir, '03-activity-sidebar.png') })
-  log('截图 03-activity-sidebar.png')
-
-  /* ════ Step c（续）：真实 Token 数据流（合成 projcache → 广播 → 序列） ════ */
-  log('— Step c4/c5：合成 Token 数据流（广播可达性 + 分钟采样） —')
-  // 在 activity 视图挂 onTokenSample 收集器：验证主进程广播可达 WebContentsView
-  // （对应评审修复：broadcast 覆盖全部自有 webContents）
-  await activityPage.evaluate(() => {
-    window.__e2eToken = []
-    window.api.onTokenSample((payload) => window.__e2eToken.push(payload))
-  })
-
-  /** 合成 session_projcache.json（schema 与 token-metrics 解析器对齐） */
-  const syntheticCache = (uncachedInput, output) => ({
-    unit: { name: 'session_projcache', version: 1 },
-    global: {},
-    tables: {
-      sessions: {
-        'e2e-fake-session': {
-          identity: { id: 'e2e-fake-session' },
-          rows: {
-            tokenUsage: {
-              ver: 1,
-              seq: 1,
-              val: {
-                totals: {
-                  uncachedInputTokens: uncachedInput,
-                  outputTokens: output,
-                  cacheReadTokens: 0,
-                  cacheWriteTokens: 0
-                }
-              }
-            },
-            contextPressure: {
-              ver: 1,
-              seq: 1,
-              val: { pressureTokens: 100, contextWindow: 64000, surfaceTokens: 1200 }
-            }
-          }
-        }
-      }
-    }
-  })
-
-  const storagesDir = join(dshHome, 'storages')
-  mkdirSync(storagesDir, { recursive: true })
-  const projCachePath = join(storagesDir, 'session_projcache.json')
-
-  // 第一次写入：建立采样基线（首次读数不出样本，但 aggregate 已随广播下发）
-  writeFileSync(projCachePath, JSON.stringify(syntheticCache(1000, 2000)), 'utf-8')
-  await waitFor(
-    () =>
-      activityPage.evaluate(() =>
-        (window.__e2eToken ?? []).some(
-          (p) => p.active === true && p.aggregate?.totals?.uncachedInput === 1000
-        )
-      ),
-    { timeoutMs: 20_000, label: 'onTokenSample 广播到达 activity 视图（合成聚合 1000/2000）' }
-  )
-  assertOk(
-    true,
-    'c4 activity 视图收到 onTokenSample（广播可达 WebContentsView，合成 aggregate 生效）'
-  )
-
-  // 第二次写入：mtime 变化触发差分采样 → 历史出现增量点（基线 3000 → 4100）
-  await sleep(1_200)
-  writeFileSync(projCachePath, JSON.stringify(syntheticCache(1500, 2600)), 'utf-8')
-  await waitFor(
-    async () => {
-      const series = await activityPage.evaluate(() => window.api.getTokenSeries('1h'))
-      return Array.isArray(series?.points) && series.points.length > 0
-    },
-    { timeoutMs: 20_000, label: "getTokenSeries('1h') 返回非空 points（分钟差分采样）" }
-  )
-  const finalSeries = await activityPage.evaluate(() => window.api.getTokenSeries('1h'))
-  assertOk(
-    (finalSeries?.points?.length ?? 0) > 0,
-    'c5 getTokenSeries 产出增量样本（projcache → 采样 → 序列全链路）',
-    `points=${finalSeries?.points?.length}`
-  )
-  await activityPage.screenshot({ path: join(artifactsDir, '03b-activity-data.png') })
-  log('截图 03b-activity-data.png')
-
-  /* ════════ Step d：设置与模型配置（IPC） ════════ */
-  log('— Step d：配置 IPC（splash 上下文） —')
+  
+  /* ════════ Step c：设置与模型配置（IPC） ════════ */
+  log('— Step c：配置 IPC（splash 上下文） —')
   const cfg1 = await splash.evaluate(() => window.api.getConfig())
-  assertOk(cfg1?.apiKey?.configured === true, 'd1 getConfig 反映密钥已配置（掩码不回明文）', `masked=${cfg1?.apiKey?.masked}`)
+  assertOk(cfg1?.apiKey?.configured === true, 'c1 getConfig 反映密钥已配置（掩码不回明文）', `masked=${cfg1?.apiKey?.masked}`)
   assertOk(
     typeof cfg1?.apiKey?.masked === 'string' && !JSON.stringify(cfg1).includes('sk-e2e-test-key-000000'),
-    'd2 getConfig 全量返回不含明文 Key'
+    'c2 getConfig 全量返回不含明文 Key'
   )
 
   const saveModelRes = await splash.evaluate(() => window.api.saveModel('deepseek-chat'))
-  assertOk(saveModelRes?.ok === true, 'd3 saveModel(deepseek-chat) 返回 ok')
+  assertOk(saveModelRes?.ok === true, 'c3 saveModel(deepseek-chat) 返回 ok')
   const settingsPath = join(dshHome, 'settings.yaml')
   const settingsExists = existsSync(settingsPath)
-  assertOk(settingsExists, 'd4 settings.yaml 已写入', settingsPath.replace(dshHome, '<DSH_HOME>'))
+  assertOk(settingsExists, 'c4 settings.yaml 已写入', settingsPath.replace(dshHome, '<DSH_HOME>'))
   if (settingsExists) {
     const raw = readFileSync(settingsPath, 'utf-8')
     assertOk(
       raw.includes('agent-default-model') && raw.includes('deepseek-chat'),
-      'd5 settings.yaml 含 agent-default-model=deepseek-chat'
+      'c5 settings.yaml 含 agent-default-model=deepseek-chat'
     )
   } else {
-    assertOk(false, 'd5 settings.yaml 含 agent-default-model=deepseek-chat', '文件不存在')
+    assertOk(false, 'c5 settings.yaml 含 agent-default-model=deepseek-chat', '文件不存在')
   }
 
   const cfg2 = await splash.evaluate(() => window.api.getConfig())
-  assertOk(cfg2?.defaultModel === 'deepseek-chat', 'd6 getConfig 反映 defaultModel=deepseek-chat')
+  assertOk(cfg2?.defaultModel === 'deepseek-chat', 'c6 getConfig 反映 defaultModel=deepseek-chat')
 
   const reSave = await splash.evaluate(() => window.api.saveApiKey('sk-e2e-test-key-000000'))
-  assertOk(reSave?.ok === true, 'd7 saveApiKey 幂等（重复保存仍 ok）')
+  assertOk(reSave?.ok === true, 'c7 saveApiKey 幂等（重复保存仍 ok）')
   const mode2 = statSync(credPath).mode & 0o777
-  assertOk(mode2 === 0o600, 'd8 幂等保存后权限仍 0600', `mode=${mode2.toString(8)}`)
+  assertOk(mode2 === 0o600, 'c8 幂等保存后权限仍 0600', `mode=${mode2.toString(8)}`)
 
-  await splash.screenshot({ path: join(artifactsDir, '04-settings-ipc.png') })
-  log('截图 04-settings-ipc.png')
+  await splash.screenshot({ path: join(artifactsDir, '03-settings-ipc.png') })
+  log('截图 03-settings-ipc.png')
 
-  /* ════════ Step e：插件目录与并发锁 ════════ */
-  log('— Step e：插件目录 / 已装列表 / 并发锁 —')
+  /* ════════ Step d：插件目录与并发锁 ════════ */
+  log('— Step d：插件目录 / 已装列表 / 并发锁 —')
   const catalogRes = await splash.evaluate(() => window.api.getPluginCatalog())
   const catalog = catalogRes?.catalog ?? []
-  assertOk(Array.isArray(catalog) && catalog.length >= 8, 'e1 插件目录 ≥8 条', `实际 ${catalog.length} 条`)
+  assertOk(Array.isArray(catalog) && catalog.length >= 8, 'd1 插件目录 ≥8 条', `实际 ${catalog.length} 条`)
   assertOk(
     catalog.every((p) => typeof p.name === 'string' && p.name.length > 0),
-    'e2 每条目录项含 name'
+    'd2 每条目录项含 name'
   )
   assertOk(
     catalog.every((p) => typeof p.version === 'string' || typeof p.description === 'string'),
-    'e3 每条目录项含 version/description 字段'
+    'd3 每条目录项含 version/description 字段'
   )
 
   const listRes = await splash.evaluate(() => window.api.listPlugins())
   assertOk(
     Array.isArray(listRes?.plugins) && listRes.plugins.length === 0,
-    'e4 全新环境 listPlugins 返回空数组',
+    'd4 全新环境 listPlugins 返回空数组',
     `实际 ${listRes?.plugins?.length} 条`
   )
 
@@ -436,15 +326,15 @@ try {
   const rejected = concurrent.filter(
     (r) => typeof r.message === 'string' && r.message.includes('已有插件操作进行中')
   )
-  assertOk(rejected.length >= 1, 'e5 并发第二个插件操作被拒绝（报错文案匹配）', JSON.stringify(concurrent.map((r) => r.message)))
+  assertOk(rejected.length >= 1, 'd5 并发第二个插件操作被拒绝（报错文案匹配）', JSON.stringify(concurrent.map((r) => r.message)))
   const listAfter = await splash.evaluate(() => window.api.listPlugins())
   assertOk(
     Array.isArray(listAfter?.plugins) && listAfter.plugins.length === 0,
-    'e6 失败的探测安装未留下任何插件'
+    'd6 失败的探测安装未留下任何插件'
   )
 
-  /* ════════ Step f：更新检查降级 ════════ */
-  log('— Step f：更新检查降级 —')
+  /* ════════ Step e：更新检查降级 ════════ */
+  log('— Step e：更新检查降级 —')
   const updaterRes = await splash.evaluate(async () => {
     try {
       const r = await window.api.checkUpdater()
@@ -454,14 +344,14 @@ try {
     }
   })
   const validStates = ['up-to-date', 'available', 'unavailable', 'error']
-  assertOk(updaterRes.thrown === false, 'f1 checkUpdater() 不抛错')
+  assertOk(updaterRes.thrown === false, 'e1 checkUpdater() 不抛错')
   assertOk(
     validStates.includes(updaterRes.result?.state),
-    'f2 更新检查返回合法状态（占位仓库时静默/降级语义）',
+    'e2 更新检查返回合法状态（占位仓库时静默/降级语义）',
     `state=${updaterRes.result?.state}`
   )
   const alive = await splash.evaluate(() => 1 + 1)
-  assertOk(alive === 2, 'f3 主窗口（splash target）仍存活可交互')
+  assertOk(alive === 2, 'e3 主窗口（splash target）仍存活可交互')
 
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())
