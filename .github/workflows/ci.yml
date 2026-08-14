@@ -1,6 +1,6 @@
 # CI：主干质量门禁
 # 触发：main 分支 push / PR
-# 内容：类型检查 → 常规构建（不依赖 runtime）→ 隐私合规检查
+# 内容：类型检查 → 单元测试 → 常规构建（不依赖 runtime）→ 隐私合规检查
 # 说明：npm run build（electron-vite build）产物为 out/，与 resources/runtime
 #       无关，因此 CI 中不执行 prepare:runtime（省去下载运行时的数分钟）。
 name: CI
@@ -13,7 +13,7 @@ on:
 
 jobs:
   ci:
-    name: Typecheck / Build / Privacy lint
+    name: Typecheck / Test / Build / Privacy lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,6 +30,10 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      # 单测门禁：node:test + tsx，无需 Electron 环境
+      - name: Unit tests
+        run: npm run test
 
       - name: Build (no runtime required)
         run: npm run build

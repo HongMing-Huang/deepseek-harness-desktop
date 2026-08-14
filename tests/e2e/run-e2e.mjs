@@ -21,7 +21,7 @@
  * 退出码：全部通过 0，任一断言失败 1。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -286,6 +286,86 @@ try {
   )
   await activityPage.screenshot({ path: join(artifactsDir, '03-activity-sidebar.png') })
   log('截图 03-activity-sidebar.png')
+
+  /* ════ Step c（续）：真实 Token 数据流（合成 projcache → 广播 → 序列） ════ */
+  log('— Step c4/c5：合成 Token 数据流（广播可达性 + 分钟采样） —')
+  // 在 activity 视图挂 onTokenSample 收集器：验证主进程广播可达 WebContentsView
+  // （对应评审修复：broadcast 覆盖全部自有 webContents）
+  await activityPage.evaluate(() => {
+    window.__e2eToken = []
+    window.api.onTokenSample((payload) => window.__e2eToken.push(payload))
+  })
+
+  /** 合成 session_projcache.json（schema 与 token-metrics 解析器对齐） */
+  const syntheticCache = (uncachedInput, output) => ({
+    unit: { name: 'session_projcache', version: 1 },
+    global: {},
+    tables: {
+      sessions: {
+        'e2e-fake-session': {
+          identity: { id: 'e2e-fake-session' },
+          rows: {
+            tokenUsage: {
+              ver: 1,
+              seq: 1,
+              val: {
+                totals: {
+                  uncachedInputTokens: uncachedInput,
+                  outputTokens: output,
+                  cacheReadTokens: 0,
+                  cacheWriteTokens: 0
+                }
+              }
+            },
+            contextPressure: {
+              ver: 1,
+              seq: 1,
+              val: { pressureTokens: 100, contextWindow: 64000, surfaceTokens: 1200 }
+            }
+          }
+        }
+      }
+    }
+  })
+
+  const storagesDir = join(dshHome, 'storages')
+  mkdirSync(storagesDir, { recursive: true })
+  const projCachePath = join(storagesDir, 'session_projcache.json')
+
+  // 第一次写入：建立采样基线（首次读数不出样本，但 aggregate 已随广播下发）
+  writeFileSync(projCachePath, JSON.stringify(syntheticCache(1000, 2000)), 'utf-8')
+  await waitFor(
+    () =>
+      activityPage.evaluate(() =>
+        (window.__e2eToken ?? []).some(
+          (p) => p.active === true && p.aggregate?.totals?.uncachedInput === 1000
+        )
+      ),
+    { timeoutMs: 20_000, label: 'onTokenSample 广播到达 activity 视图（合成聚合 1000/2000）' }
+  )
+  assertOk(
+    true,
+    'c4 activity 视图收到 onTokenSample（广播可达 WebContentsView，合成 aggregate 生效）'
+  )
+
+  // 第二次写入：mtime 变化触发差分采样 → 历史出现增量点（基线 3000 → 4100）
+  await sleep(1_200)
+  writeFileSync(projCachePath, JSON.stringify(syntheticCache(1500, 2600)), 'utf-8')
+  await waitFor(
+    async () => {
+      const series = await activityPage.evaluate(() => window.api.getTokenSeries('1h'))
+      return Array.isArray(series?.points) && series.points.length > 0
+    },
+    { timeoutMs: 20_000, label: "getTokenSeries('1h') 返回非空 points（分钟差分采样）" }
+  )
+  const finalSeries = await activityPage.evaluate(() => window.api.getTokenSeries('1h'))
+  assertOk(
+    (finalSeries?.points?.length ?? 0) > 0,
+    'c5 getTokenSeries 产出增量样本（projcache → 采样 → 序列全链路）',
+    `points=${finalSeries?.points?.length}`
+  )
+  await activityPage.screenshot({ path: join(artifactsDir, '03b-activity-data.png') })
+  log('截图 03b-activity-data.png')
 
   /* ════════ Step d：设置与模型配置（IPC） ════════ */
   log('— Step d：配置 IPC（splash 上下文） —')

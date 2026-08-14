@@ -3,7 +3,7 @@
 # 纪律：
 # - tag 必须与 package.json version 一致（validate job 强校验）；
 # - 应用壳版本只经版本 PR bump，DSH_VERSION 只由 upstream-sync PR 更新；
-# - 每个矩阵 job：准备运行时 → 构建 → 打包（--publish never）→ 冒烟 → 清单 → artifact；
+# - 每个矩阵 job：单测 → 准备运行时 → 构建 → 打包（--publish never）→ 冒烟 → 清单 → artifact；
 # - release job：汇总产物 → 生成无版本号副本（供官网 latest/download 稳定链接）→
 #   总 SHASUMS256.txt → latest.yml 占位 → 创建 Release（notes 取自 CHANGELOG 对应版本段）。
 name: Release
@@ -83,6 +83,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # 打包前单测门禁：与 CI 门禁保持同一套 node:test 用例
+      - name: Unit tests
+        run: npm run test
 
       - name: Prepare embedded runtime
         run: npm run prepare:runtime -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}

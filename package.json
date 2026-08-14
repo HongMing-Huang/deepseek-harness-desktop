@@ -13,6 +13,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "node --import tsx --test \"tests/*.test.ts\"",
     "prepare:runtime": "tsx scripts/prepare-runtime.ts",
     "dist:mac-arm64": "npm run prepare:runtime -- --platform darwin --arch arm64 --prune-others && npm run build && electron-builder --mac --arm64 --config electron-builder.yml",
     "dist:mac-x64": "npm run prepare:runtime -- --platform darwin --arch x64 --prune-others && npm run build && electron-builder --mac --x64 --config electron-builder.yml",

@@ -3,7 +3,7 @@
  * 隐私合规检查（零依赖，Node 22 原生运行）。
  *
  * 用途：扫描仓库文本文件，拦截以下两类隐私泄露模式——
- *   1. 私有绝对路径（形如 /Users/<名字> 的 macOS 用户目录）；
+ *   1. 私有绝对路径（macOS「用户目录」形如斜杠 Users 斜杠开头的路径）；
  *   2. 个人邮箱（@gmail / @qq / @163 / @126 / @outlook / @hotmail / @foxmail 等常见个人域名）。
  *
  * 白名单：@users.noreply.github.com（GitHub 匿名提交邮箱形态，允许出现在
@@ -19,8 +19,16 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** 扫描范围：目录（递归）与根下散落文件 */
-const SCAN_DIRS = ['src', 'scripts', 'site', '.github']
-const SCAN_FILES = ['README.md', 'CHANGELOG.md']
+const SCAN_DIRS = ['src', 'scripts', 'site', 'tests', '.github']
+const SCAN_FILES = [
+  'README.md',
+  'CHANGELOG.md',
+  'package.json',
+  'electron-builder.yml',
+  'electron.vite.config.ts',
+  'tsconfig.node.json',
+  'tsconfig.web.json'
+]
 
 /** 判定为文本文件的扩展名（其余扩展名一律视为二进制跳过） */
 const TEXT_EXTS = new Set([
@@ -38,8 +46,10 @@ const BINARY_EXTS = new Set([
 /** 忽略的目录名（扫描范围内不应出现，但防御性排除） */
 const SKIP_DIRS = new Set(['node_modules', '.git', 'out', 'release', 'dist'])
 
-/** 私有绝对路径：/Users/<用户名>（首段大写避开 /users.noreply 类域名） */
-const PRIVATE_PATH_RE = /\/Users\/[A-Za-z0-9._-]+/
+/** 私有绝对路径：以斜杠 Users 斜杠开头的 macOS 用户目录（首段大写避开
+ *  users.noreply 类域名；用户名段允许任意非空白、非路径分隔符字符，
+ *  兼容中文等非 ASCII 用户名） */
+const PRIVATE_PATH_RE = /\/Users\/[^\s/]+/
 
 /** 个人邮箱：限定常见个人邮箱域 */
 const PERSONAL_EMAIL_RE = /[A-Za-z0-9._%+-]+@(?:gmail|qq|163|126|outlook|hotmail|foxmail)\.(?:com|net)/i
