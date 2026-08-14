@@ -20,6 +20,10 @@
 - 会话管理中心（`sessions`，对标 Claude Desktop / Codex 会话体验 + Trae Workspace 项目卡片）：工作区卡片首页（项目名/路径/会话数/最近活动，可在官方界面打开或在访达中定位目录）；工作区钻入浏览会话（标题/轮数/步数/最近活动，官方 `workspace.list`+`session.list` RPC 与 `~/.dsh` 本地直读双源合并去重，web 未就绪自动回退本地）；跨工作区全文搜索（官方 `session.search` RPC，部署关闭搜索时回退标题/路径元数据匹配）；恢复会话（打开主窗口官方 Web 界面续接，不注入、不改写官方 web 状态）；导出会话（官方 zip 存档含子代理会话经 `/api/session.export`；本地方案按官方 zstd 帧算法解码渲染 Markdown / 原始 JSONL，可离线导出）。全部只读，绝不改写 dsh 自身数据。
 - 插件市场 2.0：已装插件健康检查（healthy/stale/missing/broken 四态徽章：包完整性、名称匹配、与目录 pin 版本比对）；一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度管线 OpProgress 与并发锁，完成可一键重启运行时）；健康摘要与可更新计数，异常/可更新项徽章展示。
 - 插件市场 2.0 之 GitHub 直装通道：目录新增 `source: github` 条目（仅源码分发的高星工作向插件：批注/GenUI/记忆进化/审批复核/审计索引等，`installSpec` 为 `git+https…@<验证时提交>` 精确 pin，scoped 包名原样支持）；直装规格经主进程白名单校验（仅接受 github.com git 规格）；安装与全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（幂等、保留原键）放行其 prepare 构建脚本；目录另收录 3 个实际发布于 scoped npm 名下的高星插件（`dsh-better-sidebar` / `@zseven-w/dsh-openpencil` / `@linxin666/dsh-web-ui-all`）。
+- 插件直装自检修复：`allowBuilds` 改为 pnpm 10 映射形态（`name: true`，旧 pnpm 9 列表自动迁移）；安装时同时放行传入包名与规格推导的仓库名，失败且输出含 `Ignored build scripts` 时按 pnpm 打印的精确 key 补放行并自动重试一次；全量更新预放行覆盖 profile 依赖值为 git 规格的外源直装插件。
+- 会话「恢复」增强：恢复会话时打开主窗口官方 Web 界面的同时，在系统文件管理器中定位该会话所在项目目录（Trae 式工作区上下文）；定位失败不影响恢复本身。
+- **dshfind 在线市场接入**（插件窗口新增「dshfind 市场」Tab）：主进程拉取 dshfind.com/zh/plugins 并解析卡片（1200+ 条目：名称/作者/描述/星数/更新信息/仓库链接），userData 缓存 24h 本地搜索，可强制刷新；安装复用 dshfind 官方命令 `github:<author>/<name>` 走 GitHub 直装通道；解析失败/网络失败均明确降级，不产出垃圾条目。
+- 官网（`site/`）重设计：对齐官方 deepseek.com/harness 设计语言——深色页面、玻璃卡片、发丝描边、大写 mono kicker、红绿灯终端窗口；首页特性更新为六大已交付能力，插件预览替换为真实精选目录条目并新增 dshfind 入口，FAQ 补充会话中心只读说明。
 
 #### 移除
 

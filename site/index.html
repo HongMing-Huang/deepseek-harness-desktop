@@ -4,136 +4,138 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Deepseek — DeepSeek Harness 的桌面形态</title>
-  <meta name="description" content="Deepseek：DeepSeek Harness 的官方级桌面形态——下载即用，零环境依赖。内嵌 Node / pnpm / dsh 运行时，macOS 与 Linux 双平台安装包。" />
+  <meta name="description" content="Deepseek：DeepSeek Harness 的桌面形态——下载即用，零环境依赖。内嵌 Node / pnpm / dsh 运行时，会话中心、插件市场 2.0、托盘常驻，贴合官方原版运行时。" />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
 
   <!-- ======== 顶部导航 ======== -->
   <header class="nav">
-    <a class="nav-brand" href="#top">
-      <img class="nav-logo" src="favicon.png" alt="Deepseek logo" width="30" height="30" />
-      <span>Deepseek</span>
-    </a>
-    <nav class="nav-links" aria-label="页面导航">
-      <a href="#features">功能</a>
-      <a href="#install">安装</a>
-      <a href="#plugins">插件</a>
-      <a href="#faq">FAQ</a>
-      <a class="nav-gh" data-github-link href="#" target="_blank" rel="noopener">
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-          <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
-        </svg>
-        <span>GitHub</span>
+    <div class="nav-inner">
+      <a class="nav-brand" href="#top">
+        <img class="nav-logo" src="favicon.png" alt="Deepseek logo" width="28" height="28" />
+        <span class="nav-name">Deepseek</span>
+        <span class="nav-tag">HARNESS DESKTOP</span>
       </a>
-    </nav>
+      <nav class="nav-links" aria-label="页面导航">
+        <a href="#features">功能</a>
+        <a href="#install">安装</a>
+        <a href="#market">插件市场</a>
+        <a href="#faq">FAQ</a>
+        <a class="nav-gh" data-github-link href="#" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </nav>
+    </div>
   </header>
 
   <main id="top">
 
-    <!-- ======== Hero：深海区 ======== -->
+    <!-- ======== Hero ======== -->
     <section class="hero">
-      <div class="hero-grid" aria-hidden="true"></div>
-      <div class="hero-glow hero-glow-a" aria-hidden="true"></div>
-      <div class="hero-glow hero-glow-b" aria-hidden="true"></div>
-
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="kicker kicker-dark">// deepseek harness · desktop edition</p>
-          <h1>Deepseek</h1>
-          <p class="hero-tagline">
-            DeepSeek Harness 的官方级桌面形态——<strong>下载即用，零环境依赖</strong>。
-          </p>
+          <div class="hero-badge">
+            <span class="pulse" aria-hidden="true"></span>
+            DeepSeek Harness 桌面形态 · 一切皆插件
+          </div>
+          <h1 class="hero-title">
+            把 Harness 装进桌面<br />
+            <span class="hero-title-accent">开箱即用的 Agent 工作台</span>
+          </h1>
           <p class="hero-sub">
-            内嵌 Node、pnpm 与 dsh 运行时，无需预装任何命令行工具；打开即得完整的 Harness Web 工作台。
+            Deepseek 将官方 DeepSeek Harness 的本地 Web UI 打包为桌面应用：内嵌 Node / pnpm / dsh
+            运行时，零环境依赖。会话管理中心、插件市场 2.0、托盘常驻与原生通知——所有能力由插件组合而成，
+            我们只负责把它们放进一个更顺手的壳里。
           </p>
 
-          <!-- 下载区：app.js 按访问平台渲染推荐按钮 -->
-          <div class="dl-zone" id="dl-zone">
-            <div class="dl-primary" id="dl-primary" aria-live="polite"></div>
-            <div class="dl-others" id="dl-others"></div>
-            <a class="dl-all" data-github-releases href="#" target="_blank" rel="noopener">
+          <div class="hero-actions">
+            <div class="dl-area">
+              <div id="dl-primary" class="dl-primary"></div>
+              <div id="dl-others" class="dl-others"></div>
+              <p class="dl-hint" id="dl-hint" hidden></p>
+            </div>
+            <a class="btn-ghost" data-github-releases href="#" target="_blank" rel="noopener">
               查看全部版本与校验清单
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5.72 3.28a.75.75 0 0 0-1.06 1.06L8.38 9.5l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 9.5 5.72 5.22ZM11.5 3.75a.75.75 0 0 0 0 1.5h.5v6.5h-.5a.75.75 0 0 0 0 1.5h2.25a.75.75 0 0 0 0-1.5h-.25v-7c0-.55-.45-1-1-1h-1Z"/></svg>
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3.5h6.5V10M12.5 3.5 5 11"/></svg>
             </a>
-            <p class="dl-hint" id="dl-hint" hidden></p>
           </div>
 
           <ul class="hero-meta">
             <li><span class="dot"></span>未签名应用 · 首次打开需放行</li>
-            <li><span class="dot"></span>macOS dmg + Linux deb / AppImage</li>
-            <li><span class="dot"></span>数据独立存放于 ~/.dsh</li>
+            <li><span class="dot"></span>macOS dmg · Linux deb / AppImage</li>
+            <li><span class="dot"></span>官方原版运行时 · 6h 自动跟版</li>
           </ul>
         </div>
 
-        <div class="hero-figure" aria-hidden="true">
-          <img src="assets/whale-hero.png" alt="" class="whale" width="520" height="520" />
-          <div class="whale-ring whale-ring-1"></div>
-          <div class="whale-ring whale-ring-2"></div>
+        <div class="hero-terminal" aria-hidden="true">
+          <div class="term-bar">
+            <i class="term-dot term-dot-r"></i><i class="term-dot term-dot-y"></i><i class="term-dot term-dot-g"></i>
+            <span class="term-title">deepseek — harness runtime</span>
+          </div>
+          <div class="term-body">
+            <pre><code><span class="c"># 应用启动后自动引导官方 dsh web</span>
+<span class="p">$</span> <span class="cmd">dsh web</span> <span class="c">--port 3080</span>
+<span class="ok">✓</span> runtime: <span class="val">@deepseek-ai/dsh 0.1.0-rc.6</span>
+<span class="ok">✓</span> web ui:  <span class="val">http://127.0.0.1:3080</span>
+<span class="ok">✓</span> session: <span class="val">官方会话中心 · 只读接入</span>
+<span class="ok">✓</span> market:  <span class="val">精选目录 29 · dshfind 1200+</span>
+<span class="p">$</span> <span class="blink">▍</span></code></pre>
+          </div>
+          <img src="assets/whale-hero.png" alt="" class="term-whale" width="140" height="140" />
         </div>
-      </div>
-
-      <div class="hero-scanline" aria-hidden="true">
-        <span>sonar: ok</span><span>runtime: bundled</span><span>dsh web: 127.0.0.1</span><span>updates: dual-track</span>
       </div>
     </section>
 
-    <!-- ======== 功能特性 ======== -->
+    <!-- ======== 设计思路 ======== -->
     <section class="section" id="features">
       <div class="section-head">
-        <p class="kicker">// features</p>
-        <h2>一台完整的 Harness 工作台，装进一个 App</h2>
-        <p class="section-sub">从运行时到插件生态，全部开箱即用。</p>
+        <p class="kicker">WHY DESKTOP</p>
+        <h2>官方底层，桌面体验</h2>
+        <p class="section-sub">不动官方 web 一行代码：运行时、会话与插件数据全部复用官方体系，桌面壳只做体验层。</p>
       </div>
 
       <div class="feature-grid">
         <article class="feature-card">
           <span class="feature-num" aria-hidden="true">01</span>
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9l2.5 2.5L14 7"/></svg>
-          </div>
           <h3>零依赖内嵌运行时</h3>
-          <p>Node、pnpm、dsh 全部内置并随包分发。不碰系统环境，不装全局包，克隆式安装——删掉 App 即彻底卸载。</p>
+          <p class="kicker">RUNTIME</p>
+          <p class="feature-desc">Node、pnpm、dsh 全部内置并随包分发。不碰系统环境，不装全局包——删掉 App 即彻底卸载。</p>
         </article>
-
         <article class="feature-card">
           <span class="feature-num" aria-hidden="true">02</span>
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/><path d="M12 7v5l3 3"/></svg>
-          </div>
-          <h3>双轨自动更新</h3>
-          <p>应用壳更新与 dsh 运行时热更互不干扰：升级 dsh 不动你的配置与插件，回退也只是点一下的事。</p>
+          <h3>贴合官方 · 自动跟版</h3>
+          <p class="kicker">OFFICIAL</p>
+          <p class="feature-desc">运行时来自 npm 官方分发并做来源校验，每 6 小时自动检查新版、人工验证后合并，不做静默升级。</p>
         </article>
-
         <article class="feature-card">
           <span class="feature-num" aria-hidden="true">03</span>
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6l2 2h8v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M8 13h8M8 16.5h5"/></svg>
-          </div>
-          <h3>插件市场</h3>
-          <p>搜索、安装、进度反馈全部图形化。社区插件一键装进沙箱目录，卸载干净无残留。</p>
+          <h3>会话管理中心</h3>
+          <p class="kicker">SESSIONS</p>
+          <p class="feature-desc">Trae 风格项目卡片首页；跨工作区浏览、搜索、恢复与导出（官方 zip / Markdown / JSONL）。只读接入，数据安全。</p>
         </article>
-
         <article class="feature-card">
           <span class="feature-num" aria-hidden="true">04</span>
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L3 18v3h3l5.7-5.7a4.5 4.5 0 0 0 6-6L14 13l-3-3 3.7-3.7Z"/></svg>
-          </div>
-          <h3>一键错误诊断与端口修复</h3>
-          <p>进程起不来、端口被占、运行时缺件——诊断面板给出原因与修复动作，不用翻日志。</p>
+          <h3>插件市场 2.0</h3>
+          <p class="kicker">MARKETPLACE</p>
+          <p class="feature-desc">精选目录 + dshfind 1200+ 在线市场，搜索即装；兼容徽章、健康检查、一键全量更新、GitHub 源码直装。</p>
         </article>
-
         <article class="feature-card">
           <span class="feature-num" aria-hidden="true">05</span>
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="14" height="11" rx="2"/><path d="M6.5 19h6M9 16v3M16 8h6v8h-6"/></svg>
-          </div>
-          <h3>macOS + Linux 双平台</h3>
-          <p>Apple Silicon 与 Intel 的 dmg，x64 与 arm64 的 deb / AppImage，四组合安装包逐架构瘦身。</p>
+          <h3>托盘常驻 + 原生通知</h3>
+          <p class="kicker">TRAY</p>
+          <p class="feature-desc">关窗驻留托盘，出错、更新、插件操作以系统通知送达，点击即聚焦对应窗口。</p>
+        </article>
+        <article class="feature-card">
+          <span class="feature-num" aria-hidden="true">06</span>
+          <h3>一键诊断与修复</h3>
+          <p class="kicker">DIAGNOSTICS</p>
+          <p class="feature-desc">进程起不来、端口被占、运行时缺件——诊断面板给出原因与修复动作，双轨更新失败自动回退。</p>
         </article>
       </div>
     </section>
@@ -141,19 +143,18 @@
     <!-- ======== 安装引导 ======== -->
     <section class="section section-tinted" id="install">
       <div class="section-head">
-        <p class="kicker">// install</p>
+        <p class="kicker">INSTALL</p>
         <h2>三分钟装好，不需要终端基础</h2>
         <p class="section-sub">文件名中的 <code>arm64</code> / <code>x64</code> 请按你的 CPU 选择。</p>
       </div>
 
       <div class="install-grid">
-        <div class="install-block">
-          <div class="install-title">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c-2 4-7 4.5-7 10a7 7 0 0 0 14 0c0-5.5-5-6-7-10Z"/><path d="M12 20a4 4 0 0 1-4-4c0-2.5 2-3.5 4-6 2 2.5 4 3.5 4 6a4 4 0 0 1-4 4Z"/></svg>
-            <h3>macOS</h3>
+        <div class="term-window">
+          <div class="term-bar">
+            <i class="term-dot term-dot-r"></i><i class="term-dot term-dot-y"></i><i class="term-dot term-dot-g"></i>
+            <span class="term-title">macOS — dmg 拖拽安装</span>
           </div>
-          <div class="terminal">
-            <div class="terminal-bar"><i></i><i></i><i></i><span>dmg — 拖拽安装</span></div>
+          <div class="term-body">
             <pre><code><span class="c"># 1. 下载 dmg，双击打开，把 Deepseek 拖入 Applications</span>
 
 <span class="c"># 2. 应用未签名：首次打开请「右键 → 打开」确认，</span>
@@ -161,90 +162,57 @@
 
 <span class="c"># 3.（可选）校验安装包完整性</span>
 <span class="c">#    与 Release 附件 SHASUMS256.txt 逐行比对</span>
-<span class="cmd">shasum -a 256</span> deepseek-harness-desktop-mac-arm64.dmg</code></pre>
+<span class="p">$</span> <span class="cmd">shasum -a 256</span> deepseek-harness-desktop-mac-arm64.dmg</code></pre>
           </div>
-          <p class="install-note">Apple Silicon 选 <code>*-mac-arm64.dmg</code>，Intel Mac 选 <code>*-mac-x64.dmg</code>。</p>
+          <p class="term-note">Apple Silicon 选 <code>*-mac-arm64.dmg</code>，Intel Mac 选 <code>*-mac-x64.dmg</code>。</p>
         </div>
 
-        <div class="install-block">
-          <div class="install-title">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6l1 3h4v15H4V5h4l1-3Z"/><path d="M9.5 12.5 12 15l4-4.5"/></svg>
-            <h3>Linux</h3>
+        <div class="term-window">
+          <div class="term-bar">
+            <i class="term-dot term-dot-r"></i><i class="term-dot term-dot-y"></i><i class="term-dot term-dot-g"></i>
+            <span class="term-title">Linux — deb / AppImage</span>
           </div>
-          <div class="terminal">
-            <div class="terminal-bar"><i></i><i></i><i></i><span>shell — deb / AppImage</span></div>
+          <div class="term-body">
             <pre><code><span class="c"># Debian / Ubuntu（推荐，自动处理桌面项与依赖）</span>
-<span class="cmd">sudo apt install</span> ./deepseek-harness-desktop-linux-x64.deb
+<span class="p">$</span> <span class="cmd">sudo apt install</span> ./deepseek-harness-desktop-linux-x64.deb
 
 <span class="c"># 任意发行版：AppImage</span>
-<span class="cmd">chmod +x</span> deepseek-harness-desktop-linux-x64.AppImage
-<span class="cmd">./</span>deepseek-harness-desktop-linux-x64.AppImage
+<span class="p">$</span> <span class="cmd">chmod +x</span> deepseek-harness-desktop-linux-x64.AppImage
+<span class="p">$</span> <span class="cmd">./</span>deepseek-harness-desktop-linux-x64.AppImage
 
 <span class="c"># AppImage 需要 FUSE（缺失时）：Ubuntu 22.04+</span>
-<span class="cmd">sudo apt install</span> libfuse2</code></pre>
+<span class="p">$</span> <span class="cmd">sudo apt install</span> libfuse2</code></pre>
           </div>
-          <p class="install-note">ARM 设备（如树莓派 / ARM 服务器）请选 <code>*-linux-arm64.*</code> 产物。</p>
+          <p class="term-note">ARM 设备（如树莓派 / ARM 服务器）请选 <code>*-linux-arm64.*</code> 产物。</p>
         </div>
       </div>
     </section>
 
-    <!-- ======== 插件生态预览 ======== -->
-    <section class="section" id="plugins">
+    <!-- ======== 插件市场 ======== -->
+    <section class="section" id="market">
       <div class="section-head">
-        <p class="kicker">// ecosystem</p>
-        <h2>插件生态：先把玩的冲动留给你</h2>
-        <p class="section-sub">以下为社区精选预览，兼容性以实际为准；完整目录见应用内插件市场。</p>
+        <p class="kicker">MARKETPLACE</p>
+        <h2>精选目录 + dshfind 在线市场</h2>
+        <p class="section-sub">应用内搜索即装；以下为精选目录预览，兼容性以应用内实际展示为准。</p>
       </div>
 
       <div class="plugin-grid">
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Web Search</h3><span class="tag tag-hot">热门</span></div>
-          <p>联网检索并带回带来源引用的答案。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Browser Pilot</h3><span class="tag tag-new">新上架</span></div>
-          <p>浏览器自动化：打开页面、读取内容、填表提交。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Git Mate</h3><span class="tag tag-hot">热门</span></div>
-          <p>提交信息生成、变更摘要与 PR 描述初稿。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Doc QA</h3><span class="tag">精选</span></div>
-          <p>指向本地文档目录，摘要、比对、逐段追问。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Terminal Pro</h3><span class="tag">精选</span></div>
-          <p>解释终端报错并给出可复制的修复命令。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Chart Sense</h3><span class="tag">精选</span></div>
-          <p>把 CSV 与日志变成图表和一句话结论。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Test Forge</h3><span class="tag tag-new">新上架</span></div>
-          <p>按改动差异生成测试用例并跑通断言。</p>
-          <span class="plugin-src">社区</span>
-        </article>
-        <article class="plugin-card">
-          <div class="plugin-head"><h3>Lint Guard</h3><span class="tag">精选</span></div>
-          <p>代码规范检查、自动修复与提交前门禁。</p>
-          <span class="plugin-src">社区</span>
-        </article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-better-sidebar</h3><span class="tag tag-hot">界面增强</span></div><p>VSCode 式右侧工作台：文件浏览/编辑、终端、Git、浏览器等可扩展 Tab。</p><span class="plugin-src">★ 727 · npm</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>@linxin666/dsh-web-ui-all</h3><span class="tag tag-hot">界面增强</span></div><p>dsh-web-ui 全家桶聚合包：任务看板 / Git 图谱 / 右侧面板 / 皮肤中心一键装齐。</p><span class="plugin-src">★ 1845 · npm</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-tool-search</h3><span class="tag">工具增强</span></div><p>工具搜索与按需加载：渐进式 schema 披露，精简上下文。</p><span class="plugin-src">npm · 已验证</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-tool-git</h3><span class="tag">工具增强</span></div><p>面向模型的结构化安全 Git 工具族（status/diff/log/branch 等）。</p><span class="plugin-src">npm · 已验证</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-mnemon</h3><span class="tag">记忆增强</span></div><p>Mnemon 本地记忆系统：运行时记忆、可检索档案与记忆体。</p><span class="plugin-src">npm · 已验证</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>@omdsh-dev/dsh-annotation</h3><span class="tag tag-new">GitHub 直装</span></div><p>选中批注：选文字→批注→回车随消息发送，回复按编号逐条对照。</p><span class="plugin-src">源码 · 已 pin 提交</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-memory-evolve</h3><span class="tag tag-new">GitHub 直装</span></div><p>分层长期记忆（全局/用户/项目/Git 分支/每日）+ 自我进化与技能管理。</p><span class="plugin-src">源码 · 已 pin 提交</span></article>
+        <article class="plugin-card"><div class="plugin-head"><h3>dsh-vision-router</h3><span class="tag">视觉能力</span></div><p>为纯文本智能体赋予视觉能力：问答、定位、裁剪、OCR、截图。</p><span class="plugin-src">npm · 已验证</span></article>
       </div>
-      <p class="plugin-disclaimer">插件条目为静态预览，版本兼容性以应用内插件市场实际展示为准。</p>
+      <p class="plugin-disclaimer">插件条目为静态预览，版本兼容性以应用内插件市场实际展示为准；dshfind 在线市场已接入应用，搜索即装。</p>
     </section>
 
     <!-- ======== FAQ ======== -->
     <section class="section section-tinted" id="faq">
       <div class="section-head">
-        <p class="kicker">// faq</p>
+        <p class="kicker">FAQ</p>
         <h2>常见问题</h2>
       </div>
 
@@ -268,13 +236,9 @@
         </details>
 
         <details class="faq-item">
-          <summary>如何回退 dsh 版本？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
+          <summary>会话中心会改动我的官方数据吗？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
           <div class="faq-body">
-            <p>两种方式：</p>
-            <ul>
-              <li>应用内自动回退：更新后新版本连续启动失败 2 次时，应用会自动切回随包内嵌的 dsh 版本，无需手动处理；</li>
-              <li>手动回退：删除侧载运行时目录即可回到内嵌版本 —— 目录位于系统应用数据区（macOS：<code>~/Library/Application Support/Deepseek/runtimes</code>；Linux：<code>~/.config/Deepseek/runtimes</code>），删除后重启应用即生效。</li>
-            </ul>
+            <p>不会。会话中心对 <code>~/.dsh</code> 与官方接口<b>全程只读</b>：浏览、搜索、导出都只是读取；「恢复」即打开官方 Web 界面续接，会话选择仍由官方 UI 负责。</p>
           </div>
         </details>
 
@@ -292,13 +256,15 @@
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
-        <img src="favicon.png" alt="Deepseek logo" width="26" height="26" />
+        <img src="favicon.png" alt="Deepseek logo" width="24" height="24" />
         <span>Deepseek</span>
+        <span class="footer-tag">HARNESS DESKTOP</span>
       </div>
 
       <div class="footer-links">
         <a data-github-link href="#" target="_blank" rel="noopener">GitHub 仓库</a>
         <a data-github-releases href="#" target="_blank" rel="noopener">Releases</a>
+        <a href="https://dshfind.com/zh/plugins" target="_blank" rel="noopener">dshfind 插件市场</a>
         <a href="#faq">常见问题</a>
       </div>
 

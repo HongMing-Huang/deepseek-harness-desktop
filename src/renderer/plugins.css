@@ -490,3 +490,37 @@ body {
   background: rgba(139, 100, 240, 0.14);
   border: 1px solid rgba(139, 100, 240, 0.45);
 }
+
+/* ── 目录 / 市场 Tab ── */
+
+.zone__tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 560;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--ink);
+  background: rgba(139, 145, 163, 0.08);
+}
+
+.tab--active {
+  color: var(--ink);
+  background: rgba(77, 107, 254, 0.14);
+  border-color: rgba(77, 107, 254, 0.35);
+}

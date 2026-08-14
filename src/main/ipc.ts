@@ -3,6 +3,7 @@ import {
   IpcChannels,
   type ConfigState,
   type DiagnosticsResult,
+  type MarketSearchResult,
   type OpProgress,
   type PluginCatalogEntry,
   type PluginEntry,
@@ -45,6 +46,8 @@ export interface IpcContext {
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
   checkPluginsHealth(): Promise<PluginHealthResult>
   updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
+  searchMarket(query: string): Promise<MarketSearchResult>
+  refreshMarket(): Promise<MarketSearchResult>
 
   /* 会话中心（sessions.ts 实现） */
   listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>
@@ -94,6 +97,8 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.PluginsRemove, (_e, name: string) => ctx.removePlugin(name))
   ipcMain.handle(IpcChannels.PluginsHealth, () => ctx.checkPluginsHealth())
   ipcMain.handle(IpcChannels.PluginsUpdateAll, () => ctx.updateAllPlugins())
+  ipcMain.handle(IpcChannels.PluginsMarketSearch, (_e, query: string) => ctx.searchMarket(query))
+  ipcMain.handle(IpcChannels.PluginsMarketRefresh, () => ctx.refreshMarket())
 
   /* 会话中心（sessions.ts） */
   ipcMain.handle(IpcChannels.SessionsWorkspaces, () => ctx.listWorkspaces())

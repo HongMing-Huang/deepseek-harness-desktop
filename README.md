@@ -24,8 +24,9 @@ src/
 │       ├── process-supervisor.ts  # dsh web 子进程托管（端口探测/探活/优雅停止）
 │       ├── dsh-installer.ts   # dsh 侧载安装/校验/失败回退内嵌版
 │       ├── port-doctor.ts     # 端口占用诊断与安全清理（命令行二次校验）
-│       ├── plugins.ts         # dsh 插件安装/卸载/健康检查/一键全量更新与进度广播
+│       ├── plugins.ts         # dsh 插件安装/卸载/健康检查/一键全量更新/直装与进度广播
 │       ├── plugin-progress.ts # pnpm 输出进度解析纯函数
+│       ├── dshfind.ts         # dshfind.com 在线市场（拉取/卡片解析/缓存/搜索）
 │       ├── updater.ts         # 双轨更新（壳 Release 检查 + dsh 热切换）
 │       └── error-classifier.ts # 启动失败错误分类与动作建议
 ├── preload/                   # 预加载脚本
@@ -62,8 +63,22 @@ resources/runtime/
 
 **红线**：官方 dsh web 一律不改动、不注入（`dshWebView` 无 preload、强沙箱），全部差异化能力由桌面壳外挂实现；dsh 运行时始终来自官方 npm 分发并 6 小时自动跟版。
 
-- 会话中心（菜单「工具 → 会话中心」，托盘同级入口）为**只读**体验层：列表数据来自官方 `workspace.list` / `session.list` RPC（经 `http://127.0.0.1:<port>/api/<method>`，browser-trust 防线放行无 Origin 的本机主进程请求）与 `~/.dsh` 本地存储双源合并；web 未就绪时自动回退本地直读（`storages/workspace.json` + `session_projcache.json` + 会话工件 mtime）。全文搜索走官方 `session.search`，部署关闭搜索索引时回退标题/路径匹配。导出：官方 zip 存档经 `/api/session.export`（含子代理会话）；Markdown / JSONL 由本地方案按官方 zstd 帧算法解码渲染，离线可用。「恢复」即打开主窗口官方 Web 界面续接，会话选择仍由官方 UI 负责。
-- 插件市场 2.0 在既有「目录搜索 + 安装/卸载」之上新增：健康检查（包完整性 / 名称匹配 / 与目录 pin 版本比对，四态徽章）与一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度与并发锁）。目录条目分两种来源：`npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发的高星工作向插件，如 `dsh-better-sidebar` 同源工作台、批注、GenUI、记忆进化等——按 `git+https…@<提交>` 直装，pin 到验证时提交；安装/全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds` 放行其构建脚本）。直装规格经主进程白名单校验（仅接受 github.com 的 git 规格），其余 URL/协议一律拒绝。
+- 会话中心（菜单「工具 → 会话中心」，托盘同级入口）为**只读**体验层：列表数据来自官方 `workspace.list` / `session.list` RPC（经 `http://127.0.0.1:<port>/api/<method>`，browser-trust 防线放行无 Origin 的本机主进程请求）与 `~/.dsh` 本地存储双源合并；web 未就绪时自动回退本地直读（`storages/workspace.json` + `session_projcache.json` + 会话工件 mtime）。全文搜索走官方 `session.search`，部署关闭搜索索引时回退标题/路径匹配。导出：官方 zip 存档经 `/api/session.export`（含子代理会话）；Markdown / JSONL 由本地方案按官方 zstd 帧算法解码渲染，离线可用。「恢复」即打开主窗口官方 Web 界面续接，并同步在系统文件管理器中定位该会话所在项目目录（Trae 式工作区上下文），会话选择仍由官方 UI 负责。
+- 插件市场 2.0 在既有「目录搜索 + 安装/卸载」之上新增：健康检查（包完整性 / 名称匹配 / 与目录 pin 版本比对，四态徽章）与一键全量更新（`dsh plugin update` 转发 pnpm update，复用进度与并发锁）。目录条目分两种来源：`npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发的高星工作向插件，如 `dsh-better-sidebar` 同源工作台、批注、GenUI、记忆进化等——按 `git+https…@<提交>` 直装，pin 到验证时提交；安装/全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（pnpm 10 映射形态 `name: true`，幂等、旧列表自动迁移）放行其构建脚本）。直装规格经主进程白名单校验（仅接受 github.com 的 git 规格），其余 URL/协议一律拒绝。
+- **dshfind 在线市场**（`dshfind.ts`）：应用内「插件 → dshfind 市场」Tab 接入 [dshfind.com/zh/plugins](https://dshfind.com/zh/plugins)——主进程拉取列表页并解析卡片（1200+ 条目，名称/作者/描述/星数/更新信息/仓库链接），缓存于 userData（TTL 24h）本地搜索；安装复用 dshfind 官方命令 `dsh plugin add github:<author>/<name>` 走 GitHub 直装通道；页面结构变化时明确报错、网络失败回退陈旧缓存，绝不静默产出垃圾条目。
+
+### 与同类桌面项目的差异（对比 anywhere-labs/deepseek-harness-desktop 等）
+
+已交付对方尚未发布或未规划的能力：会话管理中心（项目卡片/搜索/恢复/导出）、插件市场 2.0（精选目录 + dshfind 在线市场 + GitHub 直装 + 健康检查 + 一键全量更新）、原生通知、6 小时自动跟版与官方来源校验。
+
+**路线图**（明确差距，未实现不冒充）：
+
+| 方向 | 状态 | 说明 |
+| --- | --- | --- |
+| Windows 构建 | 未支持 | `prepare-runtime` 为 POSIX-only（darwin/linux）；需先完成 Node/pnpm 运行时准备与路径/环境变量的跨平台移植，再开 win32 构建矩阵 |
+| 手机远程控制 | 未规划 | 对端 App 与鉴权面大，属独立项目 |
+| IM Channels（微信/飞书/Discord） | 未规划 | 同上，依赖独立通道适配 |
+| macOS 签名/公证 | 暂缓 | 按需排期（当前未签名构建，首启需放行） |
 
 ### dsh 来源说明（内嵌运行时的官方来源）
 

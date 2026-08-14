@@ -33,6 +33,10 @@ export const IpcChannels = {
   PluginsHealth: 'plugins:health',
   /** 插件：一键全量更新（pnpm update，逐个依赖刷新到兼容最新） */
   PluginsUpdateAll: 'plugins:update-all',
+  /** 插件：dshfind 在线市场搜索 */
+  PluginsMarketSearch: 'plugins:market-search',
+  /** 插件：dshfind 在线市场强制刷新 */
+  PluginsMarketRefresh: 'plugins:market-refresh',
 
   /** 会话：工作区列表（Trae Workspace 风格项目卡片） */
   SessionsWorkspaces: 'sessions:workspaces',
@@ -357,6 +361,34 @@ export interface PluginHealthResult {
   brokenCount: number
 }
 
+/* ───────────────────────── dshfind 在线市场 ───────────────────────── */
+
+export interface MarketPluginEntry {
+  name: string
+  /** 展示名（scoped 包等与仓库名不一致时给出，如 @author/name） */
+  displayName?: string
+  /** dshfind 展示的作者（GitHub 用户） */
+  author: string
+  description?: string
+  /** 星数（解析自列表页，字符串形如 '12' / '1.2k'） */
+  stars?: string
+  /** 「更新于」信息（语言 · 日期） */
+  updated?: string
+  repoUrl?: string
+  /** 安装规格 = github:<author>/<name>（与 dshfind 官方安装命令一致，走 GitHub 直装通道） */
+  installSpec: string
+}
+
+export interface MarketSearchResult {
+  items: MarketPluginEntry[]
+  /** 过滤前命中总数 */
+  total: number
+  /** 市场数据抓取时间（ISO 8601；无缓存时 null） */
+  fetchedAt: string | null
+  /** cache = 本地缓存（TTL 内或网络失败回退）；network = 本次实时抓取 */
+  source: 'cache' | 'network'
+}
+
 /* ───────────────────────── preload API 白名单 ───────────────────────── */
 
 /** preload 通过 contextBridge 暴露给 renderer 的 API 白名单 */
@@ -384,6 +416,8 @@ export interface DeepseekApi {
   removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
   checkPluginsHealth(): Promise<PluginHealthResult>
   updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
+  searchMarket(query: string): Promise<MarketSearchResult>
+  refreshMarket(): Promise<MarketSearchResult>
 
   /* 会话中心 */
   listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>

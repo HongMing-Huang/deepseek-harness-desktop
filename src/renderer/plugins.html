@@ -32,20 +32,41 @@
         <div class="zone__scroll" id="installedList" role="list"></div>
       </section>
 
-      <!-- 区二：目录搜索 + 安装 -->
+      <!-- 区二：目录 / dshfind 在线市场 -->
       <section class="zone zone--catalog">
         <div class="zone__head-row">
-          <h2 class="zone__title">可安装目录 <span class="zone__count" id="catalogCount">0</span></h2>
-          <input
-            class="input input--search"
-            id="catalogSearch"
-            type="search"
-            placeholder="搜索名称 / 描述 / 分类…"
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="zone__tabs" role="tablist">
+            <button class="tab tab--active" id="tabCatalog" type="button" role="tab">
+              精选目录 <span class="zone__count" id="catalogCount">0</span>
+            </button>
+            <button class="tab" id="tabMarket" type="button" role="tab">dshfind 市场</button>
+          </div>
+          <div class="zone__tools">
+            <span class="zone__health" id="marketMeta" hidden></span>
+            <button class="btn btn--ghost" id="marketRefreshBtn" type="button" hidden>
+              刷新市场
+            </button>
+            <input
+              class="input input--search"
+              id="catalogSearch"
+              type="search"
+              placeholder="搜索名称 / 描述 / 分类…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <input
+              class="input input--search"
+              id="marketSearch"
+              type="search"
+              placeholder="搜索 dshfind 插件 / 作者 / 描述…"
+              autocomplete="off"
+              spellcheck="false"
+              hidden
+            />
+          </div>
         </div>
         <div class="zone__scroll" id="catalogList" role="list"></div>
+        <div class="zone__scroll" id="marketList" role="list" hidden></div>
       </section>
 
       <!-- 区三：进度区（订阅 OpProgress 的 plugin-install / plugin-remove） -->

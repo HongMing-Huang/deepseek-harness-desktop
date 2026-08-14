@@ -9,9 +9,15 @@
     healthSummary: document.getElementById('healthSummary'),
     healthBtn: document.getElementById('healthBtn'),
     updateAllBtn: document.getElementById('updateAllBtn'),
+    tabCatalog: document.getElementById('tabCatalog'),
+    tabMarket: document.getElementById('tabMarket'),
+    marketMeta: document.getElementById('marketMeta'),
+    marketRefreshBtn: document.getElementById('marketRefreshBtn'),
     catalogCount: document.getElementById('catalogCount'),
     catalogSearch: document.getElementById('catalogSearch'),
     catalogList: document.getElementById('catalogList'),
+    marketSearch: document.getElementById('marketSearch'),
+    marketList: document.getElementById('marketList'),
     progressZone: document.getElementById('progressZone'),
     progressLabel: document.getElementById('progressLabel'),
     progressBeam: document.getElementById('progressBeam'),
@@ -24,6 +30,9 @@
   var catalog = []
   var health = [] // 健康检查结果（按 name 索引）
   var restartPending = false // 完成后等待一键重启
+  var marketTabActive = false
+  var marketItems = [] // 最近一次市场搜索结果
+  var marketTimer = null
 
   /* ── 渲染 ── */
 
@@ -234,6 +243,145 @@
     })
   }
 
+  /* ── 区二切换：精选目录 / dshfind 在线市场 ── */
+
+  function setCatalogTab(market) {
+    marketTabActive = market
+    els.tabCatalog.classList.toggle('tab--active', !market)
+    els.tabMarket.classList.toggle('tab--active', market)
+    els.catalogSearch.hidden = market
+    els.marketSearch.hidden = !market
+    els.catalogList.hidden = market
+    els.marketList.hidden = !market
+    els.marketRefreshBtn.hidden = !market
+    if (market) {
+      // 首次进入：加载市场（走缓存；过期/缺失时后台网络刷新）
+      if (marketItems.length === 0) {
+        void loadMarket('')
+      }
+    }
+  }
+
+  function renderMarket(items) {
+    els.marketList.replaceChildren()
+    if (items.length === 0) {
+      els.marketList.appendChild(el('div', 'zone__empty', '没有匹配的插件，试试更换关键词'))
+      return
+    }
+    items.forEach(function (plugin) {
+      var item = el('div', 'item')
+      item.setAttribute('role', 'listitem')
+
+      var main = el('div', 'item__main')
+      var nameRow = el('div', 'item__name-row')
+      nameRow.appendChild(el('span', 'item__name', plugin.displayName || plugin.name))
+      nameRow.appendChild(el('span', 'item__tag tag tag--github', '@' + plugin.author))
+      if (plugin.stars) {
+        nameRow.appendChild(el('span', 'item__tag badge badge--warn', '★ ' + plugin.stars))
+      }
+      main.appendChild(nameRow)
+      if (plugin.description) {
+        main.appendChild(el('div', 'item__desc', plugin.description))
+      }
+      var tags = el('div', 'item__tags')
+      tags.appendChild(el('span', 'tag tag--cat', 'dshfind'))
+      if (plugin.updated) {
+        tags.appendChild(el('span', 'tag tag--cat', plugin.updated))
+      }
+      main.appendChild(tags)
+      item.appendChild(main)
+
+      var btn = el('button', 'btn', '安装（源码）')
+      btn.type = 'button'
+      btn.title = '按 dshfind 官方命令直装：dsh plugin add ' + plugin.installSpec
+      if (installed.indexOf(plugin.name) >= 0) {
+        btn.textContent = '已安装'
+        btn.disabled = true
+        btn.dataset.installed = '1'
+      }
+      btn.addEventListener('click', function () {
+        void doMarketInstall(plugin)
+      })
+      item.appendChild(btn)
+      els.marketList.appendChild(item)
+    })
+  }
+
+  function renderMarketMeta(result) {
+    if (!result || !result.fetchedAt) {
+      els.marketMeta.hidden = true
+      return
+    }
+    els.marketMeta.hidden = false
+    els.marketMeta.className =
+      'zone__health ' + (result.source === 'network' ? 'is-ok' : 'is-warn')
+    els.marketMeta.textContent =
+      (result.source === 'network' ? '实时抓取' : '缓存') +
+      ' · ' +
+      new Date(result.fetchedAt).toLocaleString() +
+      ' · ' +
+      result.total +
+      ' 个插件'
+  }
+
+  function loadMarket(query, force) {
+    if (!api) return
+    if (!force && marketItems.length === 0) {
+      els.marketList.replaceChildren(el('div', 'zone__empty', '正在抓取 dshfind 市场数据…'))
+    }
+    els.marketRefreshBtn.disabled = true
+    els.marketRefreshBtn.textContent = '刷新中…'
+    var p = force ? api.refreshMarket() : api.searchMarket(query || '')
+    p
+      .then(function (result) {
+        marketItems = result.items || []
+        renderMarketMeta(result)
+        renderMarket(marketItems)
+        if (force) {
+          els.marketSearch.value = ''
+        }
+      })
+      .catch(function () {
+        renderMarketMeta(null)
+        els.marketList.replaceChildren(
+          el('div', 'zone__empty', '市场数据不可用（网络失败或页面结构变化），可在浏览器打开 dshfind.com/zh/plugins'),
+          el('div', 'zone__empty', '')
+        )
+      })
+      .finally(function () {
+        els.marketRefreshBtn.disabled = false
+        els.marketRefreshBtn.textContent = '刷新市场'
+      })
+  }
+
+  function scheduleMarketSearch() {
+    var query = (els.marketSearch.value || '').trim()
+    if (marketTimer) clearTimeout(marketTimer)
+    marketTimer = setTimeout(function () {
+      void loadMarket(query)
+    }, 280)
+  }
+
+  function doMarketInstall(plugin) {
+    if (!api || restartPending) return
+    setAllButtonsDisabled(true)
+    showProgress('start', '正在提交源码安装请求…')
+    // dshfind 官方安装命令 = dsh plugin add github:<author>/<name>
+    api
+      .installPlugin(plugin.name, undefined, plugin.installSpec)
+      .then(function (result) {
+        setAllButtonsDisabled(false)
+        if (!result.ok) {
+          showProgress('error', result.message || '安装失败')
+        }
+        void refreshLists()
+      })
+      .catch(function () {
+        setAllButtonsDisabled(false)
+        showProgress('error', '安装请求失败')
+      })
+  }
+
   /* ── 数据加载 ── */
 
   function load() {
@@ -399,6 +547,16 @@
 
   if (api) {
     els.catalogSearch.addEventListener('input', renderCatalog)
+    els.marketSearch.addEventListener('input', scheduleMarketSearch)
+    els.tabCatalog.addEventListener('click', function () {
+      setCatalogTab(false)
+    })
+    els.tabMarket.addEventListener('click', function () {
+      setCatalogTab(true)
+    })
+    els.marketRefreshBtn.addEventListener('click', function () {
+      void loadMarket('', true)
+    })
     els.healthBtn.addEventListener('click', function () {
       void refreshHealth()
     })

@@ -22,6 +22,7 @@ import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay
 import { logger } from './logger'
 import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
+import * as dshfind from './runtime/dshfind'
 import * as sessions from './sessions'
 import type {
   ConfigState,
@@ -328,6 +329,8 @@ function buildIpcContext(): IpcContext {
       }
       return result
     },
+    searchMarket: (query: string) => dshfind.searchMarket(query),
+    refreshMarket: () => dshfind.refreshMarket(),
 
     checkUpdater: () =>
       updater ? updater.checkNow() : Promise.resolve({

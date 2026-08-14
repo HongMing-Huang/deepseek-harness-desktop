@@ -1,6 +1,6 @@
 import { dialog, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { createWriteStream, readFileSync } from 'node:fs'
+import { createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -835,9 +835,21 @@ export function resumeSession(sessionId: string): SessionsResumeResult {
   }
   deps.ensureMainWindow()
   // 空 id = 仅打开官方界面（工作区卡片入口）；非空 = 恢复指定会话（官方侧栏续接）
-  return sessionId
-    ? { ok: true, message: '已打开官方 Web 界面，在会话侧栏中继续' }
-    : { ok: true, message: '已打开官方 Web 界面' }
+  if (!sessionId) {
+    return { ok: true, message: '已打开官方 Web 界面' }
+  }
+  // 恢复增强：同步定位该会话所在项目目录（Trae 式工作区上下文），失败不影响恢复本身
+  const cwd = readLocalSessionCache().get(sessionId)?.cwd
+  if (cwd && typeof cwd === 'string' && cwd.length > 0) {
+    const exists = existsSync(cwd)
+    if (exists) {
+      void shell.openPath(cwd).catch((err) => {
+        logger.info(`恢复会话：打开工作区目录失败（${String(err)}）`)
+      })
+      return { ok: true, message: '已打开官方 Web 界面与项目目录，在会话侧栏中继续' }
+    }
+  }
+  return { ok: true, message: '已打开官方 Web 界面，在会话侧栏中继续' }
 }
 
 export async function openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }> {

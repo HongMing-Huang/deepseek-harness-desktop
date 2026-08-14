@@ -46,6 +46,8 @@ const api: DeepseekApi = {
   removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
   checkPluginsHealth: () => ipcRenderer.invoke(IpcChannels.PluginsHealth),
   updateAllPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsUpdateAll),
+  searchMarket: (query: string) => ipcRenderer.invoke(IpcChannels.PluginsMarketSearch, query),
+  refreshMarket: () => ipcRenderer.invoke(IpcChannels.PluginsMarketRefresh),
 
   /* 会话中心 */
   listWorkspaces: () => ipcRenderer.invoke(IpcChannels.SessionsWorkspaces),
