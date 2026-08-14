@@ -1,5 +1,5 @@
 /**
- * prepare-runtime：为 DSH Desktop 准备内嵌运行时。
+ * prepare-runtime：为 Deepseek 准备内嵌运行时。
  *
  * 产出（resources/runtime/，按 --platform/--arch 目标组合）：
  *   node/<arch>/node            Node LTS 官方二进制
@@ -9,6 +9,10 @@
  *   dsh/version.json            版本清单
  *
  * pnpm 首选 tgz 瘦身方案；任一步失败自动整体回退为下载 standalone 二进制。
+ *
+ * dsh 官方来源校验：安装（含幂等跳过）后必验包名/钉死版本/repository 与
+ * npm registry 维护者归属，防止本地拷贝或仿冒包混入内嵌运行时（详见
+ * verifyDshProvenance）。
  *
  * 特性：幂等（已存在且平台标记一致则跳过）、下载带进度与重试、完整性校验
  * （Node tarball 对官方 SHASUMS256.txt，pnpm tgz 对 registry dist.integrity）。
@@ -381,18 +385,117 @@ async function installPnpmFromTgz(cjsPath: string): Promise<void> {
 
 // ── dsh ─────────────────────────────────────────────────────────────
 
+/** dsh 上游官方 GitHub 仓库（来源校验基准；与 sync-upstream 同源） */
+const DSH_UPSTREAM_REPO = 'deepseek-ai/deepseek-harness'
+
+/** npm registry 上该包维护者名单须含 deepseek-ai 官方发布者（个人账号名或邮箱域名带 deepseek 标识） */
+const DSH_OFFICIAL_MAINTAINER_RE = /deepseek/i
+
+/** dsh 安装产物 package.json 的最小结构（未知字段忽略） */
+interface DshManifest {
+  name?: unknown
+  version?: unknown
+  repository?: unknown
+}
+
+/** npm registry 完整元数据中维护者与版本表的最小结构 */
+interface DshRegistryMeta {
+  maintainers?: Array<{ name?: unknown; email?: unknown }>
+  versions?: Record<string, { maintainers?: Array<{ name?: unknown; email?: unknown }> } | undefined>
+}
+
+/** 提取 repository 引用：兼容字符串简写与 { type, url } 对象两种写法 */
+function repositoryRefOf(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && typeof (value as { url?: unknown }).url === 'string') {
+    return (value as { url: string }).url
+  }
+  return ''
+}
+
+/** 规范化 repository 引用：去 git+ / github: 前缀与 .git 后缀，便于包含匹配 */
+function normalizeRepositoryRef(ref: string): string {
+  return ref
+    .replace(/^git\+/, '')
+    .replace(/^github:/, '')
+    .replace(/\.git$/i, '')
+    .trim()
+}
+
+/**
+ * dsh 官方来源校验（防本地拷贝/仿冒包混入内嵌运行时）：
+ * 1. 安装产物 manifest：name === 钉死包名、version === 钉死版本、
+ *    repository 指向上游官方仓库；
+ * 2. npm registry 完整元数据（abbreviated 元数据不含 maintainers，故用完整 doc）：
+ *    钉死版本的维护者中须有 deepseek-ai 官方发布者（个人发布者账号名或
+ *    邮箱域名含 deepseek 标识，与官方组织发布实务一致）。
+ * 任一不匹配 → 构建失败；幂等跳过安装时同样执行本校验。
+ */
+async function verifyDshProvenance(dshDir: string): Promise<void> {
+  const manifestPath = join(dshDir, 'node_modules', DSH_PACKAGE, 'package.json')
+  if (!existsSync(manifestPath)) {
+    fail(`来源校验失败：未找到 dsh manifest：${manifestPath}`)
+  }
+  let manifest: DshManifest
+  try {
+    manifest = JSON.parse(await readFile(manifestPath, 'utf-8')) as DshManifest
+  } catch (err) {
+    fail(`来源校验失败：dsh manifest 解析失败：${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  if (manifest.name !== DSH_PACKAGE) {
+    fail(`来源校验失败：包名应为 ${DSH_PACKAGE}，实际为 ${String(manifest.name)}`)
+  }
+  if (manifest.version !== DSH_VERSION) {
+    fail(`来源校验失败：版本应为钉死的 ${DSH_VERSION}，实际为 ${String(manifest.version)}`)
+  }
+  const repoRef = normalizeRepositoryRef(repositoryRefOf(manifest.repository))
+  if (!repoRef.includes(DSH_UPSTREAM_REPO)) {
+    fail(
+      `来源校验失败：repository 应指向 github.com/${DSH_UPSTREAM_REPO}，实际为「${repoRef || '(缺失)'}」`
+    )
+  }
+
+  // registry 维护者归属：网络失败同样视为构建失败（无法证明来源）
+  const meta = await withRetry('dsh registry 来源元数据', async () => {
+    const res = await fetch(`${NPM_REGISTRY}/${DSH_PACKAGE}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status} ← ${NPM_REGISTRY}/${DSH_PACKAGE}`)
+    return (await res.json()) as DshRegistryMeta
+  })
+  const maintainers = meta.versions?.[DSH_VERSION]?.maintainers ?? meta.maintainers ?? []
+  const officialHit = maintainers.some((m) => {
+    const name = typeof m?.name === 'string' ? m.name : ''
+    const email = typeof m?.email === 'string' ? m.email : ''
+    return DSH_OFFICIAL_MAINTAINER_RE.test(name) || DSH_OFFICIAL_MAINTAINER_RE.test(email)
+  })
+  if (!officialHit) {
+    const roster = maintainers
+      .map((m) => (typeof m?.name === 'string' ? m.name : '(未知)'))
+      .join('、')
+    fail(
+      `来源校验失败：registry 中 ${DSH_PACKAGE}@${DSH_VERSION} 的维护者（${roster || '(无)'}）不含 deepseek-ai 官方发布者`
+    )
+  }
+
+  log(
+    `dsh source: ${DSH_PACKAGE}@${DSH_VERSION} from npm registry ` +
+      `(official distribution of github.com/${DSH_UPSTREAM_REPO})`
+  )
+}
+
 async function prepareDsh(): Promise<void> {
   const dshDir = join(RUNTIME_DIR, 'dsh')
   const versionFile = join(dshDir, 'version.json')
   const binPath = join(dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 
-  // 幂等：版本一致且 bin 存在则跳过
+  // 幂等：版本一致且 bin 存在则跳过安装（来源校验仍然执行）
   if (existsSync(binPath) && existsSync(versionFile)) {
     try {
       const { readFile } = await import('node:fs/promises')
       const v = JSON.parse(await readFile(versionFile, 'utf-8')) as { dsh?: string }
       if (v.dsh === DSH_VERSION) {
-        log(`✓ ${DSH_PACKAGE}@${DSH_VERSION} 已安装，跳过`)
+        log(`✓ ${DSH_PACKAGE}@${DSH_VERSION} 已安装，跳过安装（来源校验照常执行）`)
+        await verifyDshProvenance(dshDir)
         return
       }
     } catch {
@@ -415,6 +518,8 @@ async function prepareDsh(): Promise<void> {
   if (!existsSync(binPath)) {
     fail(`安装完成但未找到 dsh bin：${binPath}`)
   }
+
+  await verifyDshProvenance(dshDir)
 
   await writeFile(
     versionFile,

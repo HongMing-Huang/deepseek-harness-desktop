@@ -56,6 +56,13 @@ resources/runtime/
 
 启动流程：主窗口先加载 splash → `ProcessSupervisor` 拉起 `dsh web --port <n>` → HTTP 探活就绪后窗口切换至 `http://127.0.0.1:<port>`。
 
+### dsh 来源说明（内嵌运行时的官方来源）
+
+- 内嵌 dsh 运行时由 `npm run prepare:runtime` 执行 `scripts/prepare-runtime.ts`，从 npm 官方源（registry.npmjs.org）安装官方发布包 `@deepseek-ai/dsh@<DSH_VERSION>`（钉死版本，见 `src/shared/versions.ts`）——即上游官方 GitHub 仓库 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的分发物，绝不使用本地拷贝或私有源。
+- 安装完成后脚本会强制执行**来源校验**：包名、钉死版本、`repository` 字段必须指向上游官方仓库，且 npm registry 元数据中该版本的维护者须属 deepseek-ai 官方（个人发布者账号名或邮箱域名含 deepseek 标识）；任一不匹配即构建失败并给出明确报错（幂等重跑时同样校验）。安装日志会打印一行来源声明，例如：`dsh source: @deepseek-ai/dsh@0.1.0-rc.6 from npm registry (official distribution of github.com/deepseek-ai/deepseek-harness)`。
+- 如需重建：删除 `resources/runtime/dsh/` 后重跑 `npm run prepare:runtime` 即可重新从官方源安装；`resources/runtime/` 不入版本库。
+- 用户数据目录 `~/.dsh`（凭据、配置、会话、插件）属于 dsh 自身，与打包/分发无关，构建与安装过程永远不会触碰它。
+
 ## 构建步骤
 
 前置：Node >= 22.19.0、npm。
