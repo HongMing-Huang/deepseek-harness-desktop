@@ -1,0 +1,42 @@
+appId: com.deepseek.dsh-desktop
+productName: DSH Desktop
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: resources/runtime
+    to: runtime
+    filter:
+      - "**/*"
+asar: true
+asarUnpack: []
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  # 图标与签名/公证为后续任务，此处仅占位
+  # icon: build/icon.icns
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+dmg:
+  sign: false
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+notarize:
+  teamID: "PLACEHOLDER_TEAM_ID"

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DSH Desktop</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./splash.css" />
+  </head>
+  <body>
+    <div class="scene">
+      <!-- 背景氛围层 -->
+      <div class="backdrop" aria-hidden="true">
+        <div class="glow glow--a"></div>
+        <div class="glow glow--b"></div>
+        <div class="grid-lines"></div>
+        <div class="grain"></div>
+      </div>
+
+      <main class="stage">
+        <!-- 品牌占位：后续任务替换为 DeepSeek 鲸鱼 logo -->
+        <div class="brand" aria-label="DSH Desktop">
+          <div class="brand__mark">
+            <span class="brand__mono">D</span>
+            <span class="brand__ring"></span>
+          </div>
+          <div class="brand__word">
+            <span class="brand__name">DSH&nbsp;Desktop</span>
+            <span class="brand__tag">DeepSeek Harness · Web</span>
+          </div>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div class="progress__track">
+            <div class="progress__beam" id="beam"></div>
+          </div>
+        </div>
+
+        <div class="status" role="status" aria-live="polite">
+          <span class="status__dot" id="statusDot"></span>
+          <span class="status__text" id="statusText">正在初始化…</span>
+        </div>
+
+        <details class="diag" id="diagBox" hidden>
+          <summary>诊断信息</summary>
+          <pre class="diag__pre" id="diagPre"></pre>
+        </details>
+      </main>
+
+      <footer class="foot">
+        <span>com.deepseek.dsh-desktop</span>
+        <span class="foot__sep">·</span>
+        <span>runtime: bundled node / pnpm / dsh</span>
+      </footer>
+    </div>
+
+    <script src="./splash.js"></script>
+  </body>
+</html>

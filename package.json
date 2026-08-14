@@ -1,0 +1,28 @@
+{
+  "name": "dsh-desktop",
+  "version": "0.1.0",
+  "description": "DSH Desktop - a Codex-like macOS desktop app wrapping the official DeepSeek Harness (dsh) Web UI",
+  "main": "./out/main/index.js",
+  "author": "DeepSeek",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "prepare:runtime": "tsx scripts/prepare-runtime.ts",
+    "predist": "npm run build",
+    "dist": "electron-builder --mac --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^3.1.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
