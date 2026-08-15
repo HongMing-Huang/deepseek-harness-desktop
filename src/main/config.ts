@@ -18,7 +18,7 @@ const CREDENTIALS_KEY = 'DEEPSEEK_API_KEY'
 const MODEL_SECTION = 'agent-default-model'
 
 /** 占位仓库：值为该默认串时壳更新检查静默跳过（真实仓库为 <owner>/deepseek-harness-desktop） */
-export const DEFAULT_UPDATE_REPO = 'owner/deepseek-harness-desktop'
+export const DEFAULT_UPDATE_REPO = 'HongMing-Huang/deepseek-harness-desktop'
 
 export const DEFAULT_PREFERENCES: Preferences = {
   updateCheckEnabled: true,

@@ -11,7 +11,7 @@
 
 // 建仓后替换为真实 owner（GitHub 用户名或组织名）
 // 提交官网上线前务必修改，否则下载链接与版本徽章无法工作
-const OWNER_PLACEHOLDER = 'OWNER_PLACEHOLDER';
+const OWNER_PLACEHOLDER = 'HongMing-Huang';
 
 const REPO_NAME = 'deepseek-harness-desktop';
 
