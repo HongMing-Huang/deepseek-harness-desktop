@@ -26,12 +26,13 @@ mac:
   # arch 由 CLI（--arm64/--x64）控制，dist 脚本已按单架构瘦身运行时
   target:
     - dmg
-    - zip
   icon: build/icon.icns
-  # 签名/公证为后续任务：当前不签名、不公证
+  # ad-hoc 签名（identity: '-'）：免费、无需开发者账号。相比完全无签名，
+  # 可避免 Gatekeeper 把应用判为「已损坏」直接移入废纸篓——用户右键 → 打开即可放行。
+  # 正式签名/公证为后续任务（见 README），当前不做。
   hardenedRuntime: false
   gatekeeperAssess: false
-  identity: null
+  identity: '-'
 dmg:
   sign: false
   contents:
@@ -48,4 +49,4 @@ linux:
   category: Development
   icon: build/icons/512x512.png
   maintainer: "Deepseek Harness Desktop Contributors <deepseek-harness-desktop@users.noreply.github.com>"
-# electron-builder 26 已移除顶层 notarize 选项：未配置签名（identity: null）时公证不会执行
+# electron-builder 26 已移除顶层 notarize 选项：ad-hoc 签名不做公证

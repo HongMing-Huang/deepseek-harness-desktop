@@ -68,7 +68,7 @@
           </div>
 
           <ul class="hero-meta">
-            <li><span class="dot"></span>未签名应用 · 首次打开需放行</li>
+            <li><span class="dot"></span>ad-hoc 签名 · 首次打开右键放行</li>
             <li><span class="dot"></span>macOS dmg · Linux deb / AppImage</li>
             <li><span class="dot"></span>官方原版运行时 · 6h 自动跟版</li>
           </ul>
@@ -158,12 +158,12 @@
           <div class="term-body">
             <pre><code><span class="c"># 1. 下载 dmg，双击打开，把 Deepseek 拖入 Applications</span>
 
-<span class="c"># 2. 应用未签名：首次打开请「右键 → 打开」确认，</span>
+<span class="c"># 2. ad-hoc 签名（未公证）：首次打开请「右键 → 打开」确认，</span>
 <span class="c">#    或到 系统设置 → 隐私与安全性 → 仍要打开</span>
 
 <span class="c"># 3.（可选）校验安装包完整性</span>
 <span class="c">#    与 Release 附件 SHASUMS256.txt 逐行比对</span>
-<span class="p">$</span> <span class="cmd">shasum -a 256</span> deepseek-harness-desktop-mac-arm64.dmg</code></pre>
+<span class="p">$</span> <span class="cmd">shasum -a 256</span> deepseek-harness-desktop-&lt;版本&gt;-mac-arm64.dmg</code></pre>
           </div>
           <p class="term-note">Apple Silicon 选 <code>*-mac-arm64.dmg</code>，Intel Mac 选 <code>*-mac-x64.dmg</code>。</p>
         </div>
@@ -244,11 +244,13 @@
         <details class="faq-item" open>
           <summary>Gatekeeper 提示「无法验证开发者」怎么办？<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11.5 3.5 7 4.6 5.9 8 9.3l3.4-3.4L12.5 7 8 11.5Z"/></svg></summary>
           <div class="faq-body">
-            <p>应用当前未做签名与公证，这是正常现象。两种放行方式任选其一：</p>
+            <p>应用采用免费的 ad-hoc 签名（未公证），这是正常现象。放行方式：</p>
             <ul>
               <li>在「应用程序」中<b>右键 → 打开 → 再点「打开」</b>（只需一次）；</li>
               <li>或先双击，被拦截后到<b>系统设置 → 隐私与安全性</b>，底部点「仍要打开」。</li>
             </ul>
+            <p>若提示<b>「已损坏，无法打开」</b>（多见于旧版本）：从官网重新下载最新版即可；或终端执行
+            <code>xattr -cr /Applications/Deepseek.app</code> 清除下载隔离属性后重开。</p>
           </div>
         </details>
 

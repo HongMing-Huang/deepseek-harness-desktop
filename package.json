@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deepseek - a Codex-like desktop app wrapping the official DeepSeek Harness (dsh) Web UI",
   "main": "./out/main/index.js",
   "author": "Deepseek Harness Desktop Contributors",

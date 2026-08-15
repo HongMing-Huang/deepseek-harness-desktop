@@ -31,6 +31,25 @@ function releasesUrl() {
   return `${repoUrl()}/releases`;
 }
 
+/* 最新发布缓存：资产名含版本号，先经 GitHub API 解析 latest 版本再拼文件名 */
+let cachedRelease = null;
+async function fetchLatestRelease() {
+  if (cachedRelease) return cachedRelease;
+  if (isPlaceholderOwner) return null;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO_NAME}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) return null;
+    const release = await res.json();
+    if (!release || typeof release.tag_name !== 'string') return null;
+    cachedRelease = release;
+    return release;
+  } catch {
+    return null;
+  }
+}
+
 /* ---------- 平台检测 ----------
    说明：浏览器 UA 无法可靠区分 arm64/x64（Apple Silicon Safari UA 仍含
    "Intel Mac OS X" 兼容字样），因此按主流硬件给出推荐位，其余组合以
@@ -47,15 +66,21 @@ function detectPlatform() {
   return null;
 }
 
-/* ---------- 产物目录：与 electron-builder.yml artifactName 对齐 ---------- */
+/* ---------- 产物目录：与 electron-builder.yml artifactName 对齐 ----------
+   文件名含版本号（如 deepseek-harness-desktop-0.1.1-mac-arm64.dmg），
+   下载链接在运行时用 releases/latest 的 tag 动态拼接。 */
 const ASSETS = [
-  { id: 'mac-arm64',   os: 'mac',   arch: 'arm64', file: 'deepseek-harness-desktop-mac-arm64.dmg',     kind: 'dmg',      label: 'macOS arm64 · dmg' },
-  { id: 'mac-x64',     os: 'mac',   arch: 'x64',   file: 'deepseek-harness-desktop-mac-x64.dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
-  { id: 'linux-x64',   os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-amd64.deb',     kind: 'deb',      label: 'Linux x64 · deb' },
-  { id: 'linux-x64-ai',os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x86_64.AppImage',kind: 'AppImage', label: 'Linux x64 · AppImage' },
-  { id: 'linux-arm64', os: 'linux', arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.deb',   kind: 'deb',      label: 'Linux arm64 · deb' },
-  { id: 'linux-arm64-ai',os:'linux',arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.AppImage',kind:'AppImage', label: 'Linux arm64 · AppImage' }
+  { id: 'mac-arm64',   os: 'mac',   arch: 'arm64',  ext: 'dmg',       kind: 'dmg',      label: 'macOS arm64 · dmg' },
+  { id: 'mac-x64',     os: 'mac',   arch: 'x64',    ext: 'dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
+  { id: 'linux-x64',   os: 'linux', arch: 'amd64',  ext: 'deb',       kind: 'deb',      label: 'Linux x64 · deb' },
+  { id: 'linux-x64-ai',os: 'linux', arch: 'x86_64', ext: 'AppImage',  kind: 'AppImage', label: 'Linux x64 · AppImage' },
+  { id: 'linux-arm64', os: 'linux', arch: 'arm64',  ext: 'deb',       kind: 'deb',      label: 'Linux arm64 · deb' },
+  { id: 'linux-arm64-ai',os:'linux',arch: 'arm64',  ext: 'AppImage',  kind: 'AppImage', label: 'Linux arm64 · AppImage' }
 ];
+
+function assetFileName(asset, version) {
+  return `deepseek-harness-desktop-${version}-${asset.os}-${asset.arch}.${asset.ext}`;
+}
 
 /* ---------- SVG 图标 ---------- */
 const ICONS = {
@@ -76,23 +101,27 @@ function svgEl(svgString) {
 }
 
 /* ---------- 渲染下载区 ---------- */
-function renderDownloads() {
+async function renderDownloads() {
   const primaryBox = document.getElementById('dl-primary');
   const othersBox = document.getElementById('dl-others');
   if (!primaryBox || !othersBox) return;
 
+  const release = await fetchLatestRelease();
+  const version = release ? release.tag_name.replace(/^v/, '') : null;
   const current = detectPlatform();
 
-  // 主按钮：推荐平台（Mac → dmg；Linux → deb）；未知平台 → macOS arm64 + 全量平铺
-  const preferred = current
-    ? ASSETS.find(a => a.os === current.os && a.arch === current.arch && a.kind !== 'AppImage')
-    : null;
+  // 主按钮：推荐平台（Mac → dmg；Linux → deb）；无版本信息或未知平台 → Releases 页
+  const preferred =
+    version && current
+      ? ASSETS.find(a => a.os === current.os && a.arch === current.arch && a.kind !== 'AppImage')
+      : null;
 
-  if (preferred) {
+  if (preferred && version) {
+    const fileName = assetFileName(preferred, version);
     const a = document.createElement('a');
     a.className = 'btn-dl btn-dl-main';
-    a.href = releaseAssetUrl(preferred.file);
-    a.setAttribute('download', preferred.file);
+    a.href = releaseAssetUrl(fileName);
+    a.setAttribute('download', fileName);
     a.appendChild(svgEl(osIcon(preferred.os)));
     const label = document.createElement('span');
     label.textContent = `下载 for ${preferred.label}`;
@@ -114,13 +143,20 @@ function renderDownloads() {
     primaryBox.appendChild(a);
   }
 
-  // 次按钮：非推荐平台的其余组合（去重：同 id 只保留一个）
+  // 次按钮：非推荐平台的其余组合；无版本信息时全部指向 Releases 页
   const others = ASSETS.filter(a => !(preferred && a.id === preferred.id));
   for (const asset of others) {
     const a = document.createElement('a');
     a.className = 'btn-dl';
-    a.href = releaseAssetUrl(asset.file);
-    a.setAttribute('download', asset.file);
+    if (version) {
+      const fileName = assetFileName(asset, version);
+      a.href = releaseAssetUrl(fileName);
+      a.setAttribute('download', fileName);
+    } else {
+      a.href = releasesUrl();
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
     a.textContent = asset.label;
     othersBox.appendChild(a);
   }
@@ -149,11 +185,7 @@ async function renderVersionBadge() {
   if (!badge || isPlaceholderOwner) return;
 
   try {
-    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO_NAME}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json' }
-    });
-    if (!res.ok) return;
-    const release = await res.json();
+    const release = await fetchLatestRelease();
     if (!release || !release.tag_name) return;
 
     document.getElementById('version-tag').textContent = release.tag_name;
@@ -170,5 +202,5 @@ async function renderVersionBadge() {
 
 /* ---------- 入口 ---------- */
 renderGitHubLinks();
-renderDownloads();
-renderVersionBadge();
+void renderDownloads();
+void renderVersionBadge();

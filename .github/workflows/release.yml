@@ -101,22 +101,6 @@ jobs:
       - name: Smoke test embedded runtime
         run: node scripts/smoke-runtime.mjs --port 3999 --timeout-ms 45000
 
-      # 本 job 产物清单（分平台命名，避免 download-artifact 合并时同名覆盖）
-      - name: Generate SHA256 manifest
-        shell: bash
-        run: |
-          cd release
-          if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
-          MANIFEST="SHASUMS256-${{ matrix.platform }}-${{ matrix.arch }}.txt"
-          : > "$MANIFEST"
-          shopt -s nullglob
-          for f in *.dmg *.zip *.deb *.AppImage; do
-            [ -f "$f" ] || continue
-            "$HASH" "$f" >> "$MANIFEST"
-          done
-          echo "--- $MANIFEST ---"
-          cat "$MANIFEST"
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -124,10 +108,8 @@ jobs:
           if-no-files-found: error
           path: |
             release/*.dmg
-            release/*.zip
             release/*.deb
             release/*.AppImage
-            release/SHASUMS256-*.txt
 
   # ---------- 汇总发布 ----------
   release:
@@ -151,30 +133,6 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # 无版本号副本：deepseek-harness-desktop-<ver>-<os>-<arch>.<ext> → deepseek-harness-desktop-<os>-<arch>.<ext>
-      # 供官网「releases/latest/download/<file>」稳定直链使用
-      - name: Create unversioned copies
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$(node -p "require('./package.json').version")"
-          cd dist
-          for f in *; do
-            case "$f" in
-              deepseek-harness-desktop-*) ;;
-              *) continue ;;
-            esac
-            case "$f" in
-              *.dmg|*.zip|*.deb|*.AppImage) ;;
-              *) continue ;;
-            esac
-            target="${f/deepseek-harness-desktop-$VERSION-/deepseek-harness-desktop-}"
-            if [ "$target" != "$f" ]; then
-              cp -f "$f" "$target"
-              echo "copy: $f -> $target"
-            fi
-          done
-
       # 总清单：覆盖全部版本化产物 + 无版本号副本
       - name: Generate consolidated SHASUMS256.txt
         shell: bash
@@ -184,7 +142,7 @@ jobs:
           if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
           : > SHASUMS256.txt
           shopt -s nullglob
-          for f in *.dmg *.zip *.deb *.AppImage; do
+          for f in *.dmg *.deb *.AppImage; do
             [ -f "$f" ] || continue
             "$HASH" "$f" >> SHASUMS256.txt
           done
@@ -197,12 +155,13 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          SHA512="$(openssl dgst -binary -sha512 dist/deepseek-harness-desktop-mac-arm64.dmg | openssl base64 -A)"
+          DMG="deepseek-harness-desktop-${VERSION}-mac-arm64.dmg"
+          SHA512="$(openssl dgst -binary -sha512 "dist/${DMG}" | openssl base64 -A)"
           cat > dist/latest.yml <<EOF
           # 占位：为未来接入 electron-updater 预留的最小更新清单（当前版本未启用自动更新）。
           version: ${VERSION}
           files:
-            - url: deepseek-harness-desktop-mac-arm64.dmg
+            - url: ${DMG}
               sha512: ${SHA512}
           EOF
 
@@ -224,7 +183,7 @@ jobs:
             if (!body) body = `Release ${version}，详细变更见 CHANGELOG.md。`;
             const notes = `# v${version}\n\n${body}\n\n---\n\n` +
               `- 安装指引与 SHA256 校验说明：官网 Install 页\n` +
-              `- 应用未签名：macOS 首次打开请右键 → 打开；Linux 优先使用 deb。\n`;
+              `- macOS 采用 ad-hoc 签名（未公证）：首次打开请右键 → 打开放行；Linux 优先使用 deb。\n`;
             fs.writeFileSync("notes.md", notes);
             console.log(notes);
           '
@@ -236,9 +195,7 @@ jobs:
           body_path: notes.md
           files: |
             dist/*.dmg
-            dist/*.zip
             dist/*.deb
             dist/*.AppImage
             dist/SHASUMS256.txt
-            dist/SHASUMS256-*.txt
             dist/latest.yml

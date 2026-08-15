@@ -32,9 +32,9 @@ Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本
 
 ## 安装
 
-- **直接下载**：[Latest Release](https://github.com/HongMing-Huang/deepseek-harness-desktop/releases/latest)（macOS dmg / zip，Linux deb / AppImage，均附 SHA256 清单）
+- **直接下载**：[Latest Release](https://github.com/HongMing-Huang/deepseek-harness-desktop/releases/latest)（macOS dmg，Linux deb / AppImage，附 SHA256 校验清单）
 - **官网**：[hongming-huang.github.io/deepseek-harness-desktop](https://hongming-huang.github.io/deepseek-harness-desktop/)（平台推荐 + 安装引导 + FAQ）
-- 当前产物**未签名**：macOS 首次打开请「右键 → 打开」放行（官网 FAQ 有步骤）。
+- macOS 产物采用免费的 ad-hoc 签名（未公证，无需开发者账号）：首次打开请「右键 → 打开」放行，不会再被判为「已损坏」；如仍被拦截可执行 `xattr -cr /Applications/Deepseek.app`（官网 FAQ 有步骤）。
 
 ### 从源码构建
 
