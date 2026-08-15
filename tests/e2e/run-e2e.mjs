@@ -10,9 +10,9 @@
  *      （生产形态：无 ELECTRON_RENDERER_URL，页面读 out/renderer）。
  *   3. 等 CDP 端口就绪后 chromium.connectOverCDP 连接，对全部 page target
  *      挂 console / pageerror 监听（断言失败时输出辅助诊断）。
- *   4. 依次驱动并断言六个场景（a 首启引导 / b 启动进度与 web /
+ *   4. 依次驱动并断言七个场景（a 首启引导 / b 启动进度与 web /
  *      c 设置与模型 / d 插件目录与并发锁 / e 更新检查降级 /
- *      f 会话中心与插件健康），
+ *      f 会话中心与插件健康 / g 会话中心窗口 UI），
  *      截图落 tests/e2e/artifacts/。
  *   5. 优雅退出：SIGTERM Electron（主进程 before-quit 会停掉 dsh web），
  *      超时强杀；删除全部临时目录。
@@ -104,6 +104,8 @@ const childEnv = {
   ...process.env,
   DSH_HOME: dshHome,
   HOME: fakeHome,
+  // E2E 钩子：自动打开会话中心窗口（主进程仅在非打包态 + 该环境变量下响应）
+  DSH_E2E_WINDOW: 'sessions',
   // 生产形态启动：显式移除 dev server 变量，确保 preload 走 file: 分支
   ELECTRON_RENDERER_URL: ''
 }
@@ -402,6 +404,27 @@ try {
   assertOk(resumeRes?.ok === true, 'f5 resumeSession(空) 打开主窗口语义返回 ok', JSON.stringify(resumeRes))
   const folderRes = await splash.evaluate(() => window.api.openWorkspaceFolder('/definitely/not/exists'))
   assertOk(folderRes && typeof folderRes.ok === 'boolean', 'f6 openWorkspaceFolder 返回结构合法', JSON.stringify(folderRes))
+
+  /* ════════ Step g：会话中心窗口 UI（DSH_E2E_WINDOW 钩子打开） ════════ */
+  log('— Step g：会话中心窗口 —')
+  const sessionsPage = await waitFor(
+    () => findPage((u) => u.includes('sessions.html')),
+    { timeoutMs: 60_000, label: '会话中心窗口出现' }
+  )
+  await sessionsPage.waitForLoadState('domcontentloaded')
+  await waitFor(
+    () => sessionsPage.evaluate(() => Boolean(window.api)),
+    { timeoutMs: 30_000, label: '会话中心窗口 window.api 就绪' }
+  )
+  const wsOnSessions = await sessionsPage.evaluate(() => window.api.listWorkspaces())
+  assertOk(
+    Array.isArray(wsOnSessions?.workspaces),
+    'g1 会话中心窗口 api.listWorkspaces 可用',
+    JSON.stringify(wsOnSessions)
+  )
+  await sleep(1000) // 等工作区卡片渲染完成再截图
+  await sessionsPage.screenshot({ path: join(artifactsDir, '04-sessions.png') })
+  log('截图 04-sessions.png')
 
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())

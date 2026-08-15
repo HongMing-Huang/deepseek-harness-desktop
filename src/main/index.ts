@@ -18,7 +18,14 @@ import {
   resolveRuntime
 } from './runtime/paths'
 import * as config from './config'
-import { createMainWindow, setupAppMenu, showDshWebView, showRuntimeErrorOverlay } from './windows'
+import {
+  createMainWindow,
+  openPluginsWindow,
+  openSessionsWindow,
+  setupAppMenu,
+  showDshWebView,
+  showRuntimeErrorOverlay
+} from './windows'
 import { logger } from './logger'
 import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
@@ -401,6 +408,13 @@ app.whenReady().then(async () => {
       updater ? updater.onStatus(listener) : () => {}
   })
   trayController.start()
+
+  // E2E 钩子：仅测试环境变量触发（打包态忽略），自动打开指定自有窗口供 CDP 截图/断言
+  if (!app.isPackaged && process.env.DSH_E2E_WINDOW === 'sessions') {
+    openSessionsWindow()
+  } else if (!app.isPackaged && process.env.DSH_E2E_WINDOW === 'plugins') {
+    openPluginsWindow()
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

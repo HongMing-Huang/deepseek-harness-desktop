@@ -72,3 +72,5 @@
 
 - 当前钉死的内嵌版本；由 `npm run prepare:runtime` 安装于 `resources/runtime/dsh/`。
 - 版本清单见 `resources/runtime/dsh/version.json`（含 dsh / pnpm / node 主版本）。
+- 文档重写与配图：README 按大型项目格式重排（logo / 徽章 / 界面预览 / 特性 / 安装 / 功能详解 / 更新边界 / 未来方向 / 架构与安全 / CI 发布），移除同类项目对比等内容；新增应用实拍截图（启动引导 / 官方 Web / 会话中心，`site/assets/screenshots/`）并同步展示于 README 与官网「界面预览」区；E2E 新增第七场景（`DSH_E2E_WINDOW` 钩子打开会话中心窗口，验证 window.api 与页面渲染并产出截图）。
+- 安全加固：settings/plugins/sessions 三窗口 `will-navigate` 白名单从宽泛的 `file:` 前缀收紧为三个自有页面的精确地址，杜绝任意本地文件经窗口导航被读取。

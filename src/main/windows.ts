@@ -76,9 +76,20 @@ function isLocalDshWebUrl(url: string): boolean {
 /**
  * 自有窗口（设置/插件/会话中心）外链策略：
  * - window.open / target=_blank：https 链接一律交给系统浏览器（openExternal）并 deny；
- * - 页面导航：仅允许初始页面自身（file:/dev server），其余 will-navigate 阻止，
- *   防止插件/会话窗口被任何内容劫持跳转。
+ * - 页面导航：仅允许回到本窗口自己的页面地址（三个自有页面的精确前缀），
+ *   其余 will-navigate 阻止——防止任意 file:// 本地文件读取或远程跳转劫持。
  */
+const OWN_PAGES = ['settings.html', 'plugins.html', 'sessions.html']
+
+function ownPageUrls(): string[] {
+  const devServer = process.env['ELECTRON_RENDERER_URL']
+  if (devServer) {
+    return OWN_PAGES.map((page) => `${devServer}/${page}`)
+  }
+  const rendererDir = join(__dirname, '../renderer')
+  return OWN_PAGES.map((page) => join(rendererDir, page))
+}
+
 function applyOwnWindowLinkPolicy(win: BrowserWindow): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://') || url.startsWith('http://')) {
@@ -86,12 +97,8 @@ function applyOwnWindowLinkPolicy(win: BrowserWindow): void {
     }
     return { action: 'deny' }
   })
-  const devServer = process.env['ELECTRON_RENDERER_URL']
-  const ownPrefixes: string[] = []
-  if (devServer) ownPrefixes.push(devServer)
-  ownPrefixes.push('file:')
   win.webContents.on('will-navigate', (event, url) => {
-    const allowed = ownPrefixes.some((prefix) => url.startsWith(prefix))
+    const allowed = ownPageUrls().some((own) => url.startsWith(own))
     if (!allowed) {
       event.preventDefault()
       if (url.startsWith('https://') || url.startsWith('http://')) {
