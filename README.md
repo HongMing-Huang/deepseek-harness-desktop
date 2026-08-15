@@ -10,11 +10,8 @@
 
 <p align="center">
   <a href="https://github.com/HongMing-Huang/deepseek-harness-desktop/releases/latest"><img src="https://img.shields.io/badge/下载-Latest%20Release-4d6bfe?style=flat-square" alt="latest release"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square" alt="MIT License"></a>
-  <a href="./actions/workflows/ci.yml"><img src="./actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="./actions/workflows/release.yml"><img src="./actions/workflows/release.yml/badge.svg" alt="Release"></a>
   <a href="https://hongming-huang.github.io/deepseek-harness-desktop/"><img src="https://img.shields.io/badge/官网-GitHub%20Pages-181717?style=flat-square" alt="website"></a>
-  <img src="https://img.shields.io/badge/平台-macOS%20%7C%20Linux-4493F8?style=flat-square" alt="platforms">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square" alt="MIT License"></a>
 </p>
 
 Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本地 Web UI 打包为开箱即用的桌面应用：内嵌 Node / pnpm / dsh 运行时，零环境依赖；官方 dsh web **一律不改动、不注入**，桌面壳只做体验层——会话中心、插件市场、托盘通知，全部外挂实现。
@@ -25,14 +22,13 @@ Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本
 | --- | --- | --- |
 | <img src="site/assets/screenshots/splash-welcome.png" width="240" alt="启动引导"> | <img src="site/assets/screenshots/official-web.png" width="240" alt="官方 Web 界面"> | <img src="site/assets/screenshots/sessions-center.png" width="240" alt="会话中心"> |
 
-## 特性
+## 它解决了什么
 
-- **零依赖内嵌运行时**：Node、pnpm、dsh 随包分发，不碰系统环境，删掉 App 即彻底卸载；
-- **贴合官方**：运行时来自 npm 官方分发并做来源校验；每 6 小时自动检查新版本、人工验证后合并，不做静默升级；
-- **会话管理中心**：项目卡片首页（Trae 风格）+ 跨工作区浏览 / 搜索 / 恢复 / 导出（官方 zip / Markdown / JSONL），对官方数据全程只读；
-- **插件市场 2.0**：精选目录 + dshfind 在线市场（1200+ 条目搜索即装）、兼容徽章、健康检查、一键全量更新、GitHub 源码直装；
-- **托盘常驻 + 原生通知**：关窗驻留，出错 / 更新 / 插件操作以系统通知送达；
-- **一键诊断与修复**：启动失败分类、端口占用清理、双轨更新失败自动回退。
+- **零门槛启动**：Node、pnpm、dsh 全部内置随包分发，不碰系统环境，删掉 App 即彻底卸载；
+- **官方体验不打折**：原样内嵌官方 Web 界面，运行时来自官方 npm 分发并做来源校验，每 6 小时自动检查新版、人工验证后合并，不做静默升级；
+- **会话管理像桌面应用**：项目卡片首页（Trae 风格）+ 跨工作区浏览 / 搜索 / 恢复 / 导出（官方 zip / Markdown / JSONL），对官方数据全程只读；
+- **插件装得省心**：精选目录 + dshfind 在线市场（1200+ 条目搜索即装），兼容徽章、健康检查、一键全量更新，源码插件一键直装；
+- **出错有人管**：启动失败分类、端口占用清理、双轨更新失败自动回退，托盘通知随时送达。
 
 ## 安装
 
@@ -80,15 +76,6 @@ npm run dist:linux-x64
 | 官网 `site/` | 随 main 提交，`pages.yml` 自动部署 | 随提交 |
 | 官方 dsh web | **永不修改、永不注入** | — |
 | 用户数据 `~/.dsh` | **应用从不改写**（会话中心只读，插件操作走官方 `dsh plugin`） | — |
-
-## 未来方向
-
-| 方向 | 状态 | 说明 |
-| --- | --- | --- |
-| Windows 构建 | 未支持 | `prepare-runtime` 为 POSIX-only（darwin/linux）；需先完成运行时准备与路径/环境变量的跨平台移植 |
-| 启动直达工作台首页 | 规划中 | 主窗口落地项目卡片页、点卡片进官方 web |
-| macOS 签名/公证 | 暂缓 | 当前未签名构建，首启需放行 |
-| 手机远程控制 / IM 通道 | 未规划 | 对端 App 与鉴权面大，属独立项目 |
 
 ## 架构与安全
 
