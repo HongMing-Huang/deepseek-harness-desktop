@@ -631,8 +631,3 @@ function summarizeTail(tail: string): string {
     .filter((l) => l.length > 0)
   return lines.slice(-6).join(' ｜ ')
 }
-
-/** 当前 profile 目录（诊断/测试用） */
-export function pluginProfileDir(): string {
-  return profileDir()
-}
