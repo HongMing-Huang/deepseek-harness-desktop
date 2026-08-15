@@ -51,8 +51,8 @@ function detectPlatform() {
 const ASSETS = [
   { id: 'mac-arm64',   os: 'mac',   arch: 'arm64', file: 'deepseek-harness-desktop-mac-arm64.dmg',     kind: 'dmg',      label: 'macOS arm64 · dmg' },
   { id: 'mac-x64',     os: 'mac',   arch: 'x64',   file: 'deepseek-harness-desktop-mac-x64.dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
-  { id: 'linux-x64',   os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x64.deb',     kind: 'deb',      label: 'Linux x64 · deb' },
-  { id: 'linux-x64-ai',os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x64.AppImage',kind: 'AppImage', label: 'Linux x64 · AppImage' },
+  { id: 'linux-x64',   os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-amd64.deb',     kind: 'deb',      label: 'Linux x64 · deb' },
+  { id: 'linux-x64-ai',os: 'linux', arch: 'x64',   file: 'deepseek-harness-desktop-linux-x86_64.AppImage',kind: 'AppImage', label: 'Linux x64 · AppImage' },
   { id: 'linux-arm64', os: 'linux', arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.deb',   kind: 'deb',      label: 'Linux arm64 · deb' },
   { id: 'linux-arm64-ai',os:'linux',arch: 'arm64', file: 'deepseek-harness-desktop-linux-arm64.AppImage',kind:'AppImage', label: 'Linux arm64 · AppImage' }
 ];
