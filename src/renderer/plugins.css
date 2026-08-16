@@ -567,3 +567,39 @@ body {
   color: var(--accent);
   text-decoration: underline;
 }
+
+/* ── 精选目录分类 chips ── */
+
+.zone__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
+
+.chip {
+  appearance: none;
+  border: 1px solid var(--line, rgba(139, 145, 163, 0.16));
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 540;
+  padding: 3px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.chip:hover {
+  color: var(--ink);
+  background: rgba(139, 145, 163, 0.08);
+}
+
+.chip--active {
+  color: #c3d0ff;
+  background: rgba(77, 107, 254, 0.16);
+  border-color: rgba(77, 107, 254, 0.5);
+}

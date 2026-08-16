@@ -1,0 +1,117 @@
+/* ── 主界面工具栏（主窗口顶部按钮栏） ── */
+
+:root {
+  --bg: #0b0d12;
+  --line: rgba(139, 145, 163, 0.16);
+  --ink: #e8eaf0;
+  --ink-dim: #8b91a3;
+  --accent: #4d6bfe;
+  --ok: #3ddc97;
+  --warn: #d9a441;
+  --err: #f0564f;
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: rgba(11, 13, 18, 0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.bar__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.bar__dot[data-phase='ready'] {
+  background: var(--ok);
+}
+
+.bar__dot[data-phase='error'] {
+  background: var(--err);
+}
+
+.bar__name {
+  font-size: 12.5px;
+  font-weight: 640;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.bar__buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bar__btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 540;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.bar__btn:hover {
+  color: var(--ink);
+  background: rgba(139, 145, 163, 0.1);
+  border-color: var(--line);
+}
+
+.bar__btn:active {
+  background: rgba(77, 107, 254, 0.16);
+  color: #c3d0ff;
+}
+
+.bar__status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-faint, #4c5264);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

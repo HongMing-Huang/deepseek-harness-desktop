@@ -19,6 +19,9 @@
           </div>
           <div class="head__actions">
             <button class="btn btn--ghost" id="backBtn" type="button" hidden>← 返回</button>
+            <button class="btn btn--ghost" id="filesBtn" type="button" hidden title="查看工作区文件与 git 变更">
+              📂 文件
+            </button>
             <button class="btn btn--ghost" id="refreshBtn" type="button" title="重新加载当前视图">
               刷新
             </button>
@@ -43,6 +46,21 @@
       <!-- 视图二 / 三：工作区会话列表 / 搜索结果 -->
       <section class="view view--sessions" id="sessionsView" hidden>
         <div class="list" id="sessionList" role="list"></div>
+      </section>
+
+      <!-- 工作区文件树（工作区视图内切换显示；只读，点文件用默认应用打开） -->
+      <section class="view view--files" id="filesView" hidden>
+        <div class="files-head">
+          <span class="files-path" id="filesRootPath">—</span>
+          <span class="files-legend" id="filesLegend">
+            <i class="git-mark git-m">M</i>修改
+            <i class="git-mark git-a">A</i>新增
+            <i class="git-mark git-d">D</i>删除
+            <i class="git-mark git-q">?</i>未跟踪
+          </span>
+          <button class="btn btn--mini" id="filesOpenBtn" type="button">打开目录</button>
+        </div>
+        <div class="files-scroll" id="filesTree" role="tree"></div>
       </section>
 
       <!-- 导出选择浮层 -->

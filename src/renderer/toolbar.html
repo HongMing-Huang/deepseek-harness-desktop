@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+    />
+    <link rel="stylesheet" href="./toolbar.css" />
+  </head>
+  <body>
+    <div class="bar">
+      <div class="bar__brand" title="Deepseek">
+        <span class="bar__dot" id="statusDot" data-phase="starting"></span>
+        <span class="bar__name">Deepseek</span>
+      </div>
+      <div class="bar__buttons">
+        <button class="bar__btn" id="btnSessions" type="button" title="会话中心（Cmd/Ctrl+Shift+S）">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M2 3.5h12M2 8h12M2 12.5h7"/></svg>
+          会话
+        </button>
+        <button class="bar__btn" id="btnPlugins" type="button" title="插件市场">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 1.5 14 5v6L8 14.5 2 11V5L8 1.5ZM2 5l6 3.5L14 5M8 8.5v6"/></svg>
+          插件
+        </button>
+        <button class="bar__btn" id="btnSettings" type="button" title="设置（Cmd/Ctrl+,）">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6.6 2a5.3 5.3 0 0 1 2.8 0l.5 1.6a4 4 0 0 1 1.2.7l1.6-.5a5.3 5.3 0 0 1 2.4 2.4l-.5 1.6c.3.4.5.8.7 1.2l1.6.5a5.3 5.3 0 0 1 0 2.8l-1.6.5a4 4 0 0 1-.7 1.2l.5 1.6a5.3 5.3 0 0 1-2.4 2.4l-1.6-.5a4 4 0 0 1-1.2.7l-.5 1.6a5.3 5.3 0 0 1-2.8 0l-.5-1.6a4 4 0 0 1-1.2-.7l-1.6.5a5.3 5.3 0 0 1-2.4-2.4l.5-1.6a4 4 0 0 1-.7-1.2l-1.6-.5a5.3 5.3 0 0 1 0-2.8l1.6-.5a4 4 0 0 1 .7-1.2l-.5-1.6a5.3 5.3 0 0 1 2.4-2.4l1.6.5a4 4 0 0 1 1.2-.7l.5-1.6Z"/><circle cx="8" cy="8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          设置
+        </button>
+      </div>
+      <div class="bar__status">
+        <span id="statusText">启动中…</span>
+      </div>
+    </div>
+    <script type="module" src="./toolbar.js"></script>
+  </body>
+</html>

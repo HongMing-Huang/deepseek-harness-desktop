@@ -51,6 +51,18 @@ export const IpcChannels = {
   /** 会话：在系统文件管理器中打开工作区目录 */
   SessionsOpenFolder: 'sessions:open-folder',
 
+  /** 壳：打开插件窗口（主界面工具栏按钮） */
+  ShellOpenPlugins: 'shell:open-plugins',
+  /** 壳：打开会话中心窗口 */
+  ShellOpenSessions: 'shell:open-sessions',
+  /** 壳：打开设置窗口 */
+  ShellOpenSettings: 'shell:open-settings',
+
+  /** 工作区：读取目录条目（文件树懒加载） */
+  WorkspaceListDir: 'workspace:list-dir',
+  /** 工作区：git 变更状态（porcelain 解析） */
+  WorkspaceGitStatus: 'workspace:git-status',
+
   /** 配置：读取密钥状态 / 默认模型 / 偏好 / 版本信息 */
   ConfigGet: 'config:get',
   /** 配置：保存 API Key（原子写 ~/.dsh/.credentials.yaml） */
@@ -338,6 +350,40 @@ export interface SessionsResumeResult {
   message?: string
 }
 
+/* ───────────────────────── 工作区文件树 ───────────────────────── */
+
+export interface FileEntry {
+  name: string
+  dir: boolean
+  /** 文件大小（字节；目录为 0） */
+  size: number
+  /** 修改时间（ms） */
+  mtimeMs: number
+}
+
+export interface WorkspaceListDirResult {
+  ok: boolean
+  /** 绝对路径回显 */
+  path: string
+  entries: FileEntry[]
+  /** 目录不可读/不存在等错误说明 */
+  message?: string
+}
+
+export interface GitChangeEntry {
+  /** 相对仓库根的文件路径 */
+  file: string
+  /** porcelain XY 状态码（M/A/D/R/空格 等；?? = 未跟踪） */
+  code: string
+}
+
+export interface WorkspaceGitStatusResult {
+  /** 路径是否为 git 仓库 */
+  repo: boolean
+  changes: GitChangeEntry[]
+  message?: string
+}
+
 /* ───────────────────────── 插件健康检查 ───────────────────────── */
 
 export type PluginHealthState = 'healthy' | 'stale' | 'missing' | 'broken'
@@ -430,6 +476,15 @@ export interface DeepseekApi {
   ): Promise<SessionsExportResult>
   resumeSession(sessionId: string): Promise<SessionsResumeResult>
   openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
+
+  /* 壳窗口（主界面工具栏） */
+  openPluginsWindow(): Promise<{ ok: boolean }>
+  openSessionsWindow(): Promise<{ ok: boolean }>
+  openSettingsWindow(): Promise<{ ok: boolean }>
+
+  /* 工作区文件树 */
+  listDirectory(path: string): Promise<WorkspaceListDirResult>
+  workspaceGitStatus(path: string): Promise<WorkspaceGitStatusResult>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>

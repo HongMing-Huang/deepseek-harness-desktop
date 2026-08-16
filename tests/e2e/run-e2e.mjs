@@ -430,6 +430,57 @@ try {
   await sessionsPage.screenshot({ path: join(artifactsDir, `04-${e2eWindow}.png`) })
   log(`截图 04-${e2eWindow}.png`)
 
+  /* ════════ Step h：主界面工具栏 + 工作区文件树 API ════════ */
+  log('— Step h：工具栏 + 工作区文件树 —')
+  const toolbarPage = await waitFor(() => findPage((u) => u.includes('toolbar.html')), {
+    timeoutMs: 60_000,
+    label: '工具栏页面出现'
+  })
+  await toolbarPage.waitForLoadState('domcontentloaded')
+  const hasButtons = await toolbarPage.evaluate(() => {
+    return Boolean(
+      window.api &&
+        document.getElementById('btnSessions') &&
+        document.getElementById('btnPlugins') &&
+        document.getElementById('btnSettings')
+    )
+  })
+  assertOk(hasButtons, 'h1 工具栏含 会话/插件/设置 按钮且 api 就绪')
+  const openRes = await toolbarPage.evaluate(() => window.api.openSessionsWindow())
+  assertOk(openRes?.ok === true, 'h2 工具栏按钮可打开会话中心', JSON.stringify(openRes))
+
+  const dirRes = await splash.evaluate(() => window.api.listDirectory('.'))
+  assertOk(
+    dirRes?.ok === true && Array.isArray(dirRes.entries) && dirRes.entries.length > 0,
+    'h3 listDirectory 返回目录条目',
+    JSON.stringify({ ok: dirRes?.ok, count: dirRes?.entries?.length })
+  )
+  const hasPkg = dirRes.entries.some((e) => e.name === 'package.json' && !e.dir)
+  assertOk(hasPkg, 'h4 目录条目含 package.json')
+  const gitRes = await splash.evaluate(() => window.api.workspaceGitStatus('.'))
+  assertOk(
+    gitRes?.repo === true && Array.isArray(gitRes.changes),
+    'h5 workspaceGitStatus 识别 git 仓库',
+    JSON.stringify(gitRes)
+  )
+
+  /* ════════ Step i：插件窗口搜索交互（仅 plugins 窗口场景） ════════ */
+  if (e2eWindow === 'plugins') {
+    log('— Step i：插件目录搜索交互 —')
+    const filtered = await sessionsPage.evaluate(async () => {
+      const input = document.getElementById('catalogSearch')
+      input.value = 'dsh-tool-search'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise((r) => setTimeout(r, 400))
+      const count = document.querySelectorAll('#catalogList .item').length
+      // 恢复：清空关键词
+      input.value = ''
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      return count
+    })
+    assertOk(filtered >= 1 && filtered <= 3, 'i1 目录搜索过滤生效（关键词命中 1-3 条）', `命中 ${filtered} 条`)
+  }
+
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())
   log(`最终运行时状态：${JSON.stringify(statusNow)}`)

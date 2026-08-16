@@ -18,6 +18,8 @@ import {
   type SessionsSearchResult,
   type UpdaterCheckResult,
   type UpdaterStatusPayload,
+  type WorkspaceGitStatusResult,
+  type WorkspaceListDirResult,
   type WorkspaceSummary
 } from '../shared/ipc'
 
@@ -60,6 +62,11 @@ export interface IpcContext {
   ): Promise<SessionsExportResult>
   resumeSession(sessionId: string): Promise<SessionsResumeResult>
   openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
+  openPluginsWindow(): { ok: boolean }
+  openSessionsWindow(): { ok: boolean }
+  openSettingsWindow(): { ok: boolean }
+  listDirectory(path: string): Promise<WorkspaceListDirResult>
+  workspaceGitStatus(path: string): Promise<WorkspaceGitStatusResult>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>
@@ -116,6 +123,13 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   )
   ipcMain.handle(IpcChannels.SessionsOpenFolder, (_e, path: string) =>
     ctx.openWorkspaceFolder(path)
+  )
+  ipcMain.handle(IpcChannels.ShellOpenPlugins, () => ctx.openPluginsWindow())
+  ipcMain.handle(IpcChannels.ShellOpenSessions, () => ctx.openSessionsWindow())
+  ipcMain.handle(IpcChannels.ShellOpenSettings, () => ctx.openSettingsWindow())
+  ipcMain.handle(IpcChannels.WorkspaceListDir, (_e, path: string) => ctx.listDirectory(path))
+  ipcMain.handle(IpcChannels.WorkspaceGitStatus, (_e, path: string) =>
+    ctx.workspaceGitStatus(path)
   )
 }
 

@@ -65,7 +65,8 @@ export default defineConfig({
           splash: resolve(__dirname, 'src/renderer/splash.html'),
           settings: resolve(__dirname, 'src/renderer/settings.html'),
           plugins: resolve(__dirname, 'src/renderer/plugins.html'),
-          sessions: resolve(__dirname, 'src/renderer/sessions.html')
+          sessions: resolve(__dirname, 'src/renderer/sessions.html'),
+          toolbar: resolve(__dirname, 'src/renderer/toolbar.html')
         }
       }
     }

@@ -33,6 +33,7 @@
   var marketTabActive = false
   var marketItems = [] // 最近一次市场搜索结果
   var marketTimer = null
+  var activeCategory = '全部' // 精选目录分类过滤
 
   /* ── 渲染 ── */
 
@@ -178,6 +179,7 @@
   function renderCatalog() {
     var keyword = (els.catalogSearch.value || '').trim().toLowerCase()
     var visible = catalog.filter(function (p) {
+      if (activeCategory !== '全部' && (p.category || '') !== activeCategory) return false
       if (!keyword) return true
       return (
         p.name.toLowerCase().indexOf(keyword) >= 0 ||
@@ -279,6 +281,7 @@
     els.marketSearch.hidden = !market
     els.catalogList.hidden = market
     els.marketList.hidden = !market
+    els.catalogChips.hidden = market
     els.marketRefreshBtn.hidden = !market
     if (market) {
       // 首次进入：加载市场（走缓存；过期/缺失时后台网络刷新）
@@ -427,6 +430,34 @@
       })
   }
 
+  /* ── 分类 chips（精选目录按类过滤） ── */
+
+  function buildCategoryChips() {
+    var seen = {}
+    var cats = []
+    catalog.forEach(function (p) {
+      var c = p.category || '其他'
+      if (!seen[c]) {
+        seen[c] = true
+        cats.push(c)
+      }
+    })
+    els.catalogChips.replaceChildren()
+    ;['全部'].concat(cats).forEach(function (cat) {
+      var chip = el('button', 'chip' + (cat === activeCategory ? ' chip--active' : ''), cat)
+      chip.type = 'button'
+      chip.dataset.cat = cat
+      chip.addEventListener('click', function () {
+        activeCategory = cat
+        Array.prototype.forEach.call(els.catalogChips.children, function (c) {
+          c.classList.toggle('chip--active', c.dataset.cat === cat)
+        })
+        renderCatalog()
+      })
+      els.catalogChips.appendChild(chip)
+    })
+  }
+
   /* ── 数据加载 ── */
 
   function load() {
@@ -437,6 +468,7 @@
         catalog = (results[1] && results[1].catalog) || []
         health = (results[2] && results[2].items) || []
         renderHealthSummary(results[2])
+        buildCategoryChips()
         renderCatalog()
       })
       .catch(function () {
@@ -599,7 +631,16 @@
   if (api) {
     bindEcosystemLinks()
     els.catalogSearch.addEventListener('input', renderCatalog)
+    els.catalogSearch.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') renderCatalog()
+    })
     els.marketSearch.addEventListener('input', scheduleMarketSearch)
+    els.marketSearch.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        if (marketTimer) clearTimeout(marketTimer)
+        void loadMarket(els.marketSearch.value)
+      }
+    })
     els.tabCatalog.addEventListener('click', function () {
       setCatalogTab(false)
     })

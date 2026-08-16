@@ -24,6 +24,9 @@ let sessionsWindow: BrowserWindow | null = null
 
 let mainWindow: BrowserWindow | null = null
 let dshWebView: WebContentsView | null = null
+let toolbarView: WebContentsView | null = null
+/** 主界面工具栏高度（按钮栏：会话中心 / 插件 / 设置 + 运行状态） */
+const TOOLBAR_HEIGHT = 42
 /** 当前 dsh web 监听端口（就绪后由 showDshWebView 解析；外链守卫比对用） */
 let currentDshPort: number | null = null
 
@@ -36,12 +39,15 @@ function pageUrl(page: string): string {
   return join(__dirname, '../renderer', page)
 }
 
-async function loadWindowPage(win: BrowserWindow, page: string): Promise<void> {
+async function loadWindowPage(
+  win: BrowserWindow | WebContentsView,
+  page: string
+): Promise<void> {
   const url = pageUrl(page)
   if (url.startsWith('http')) {
-    await win.loadURL(url)
+    await win.webContents.loadURL(url)
   } else {
-    await win.loadFile(url)
+    await win.webContents.loadFile(url)
   }
 }
 
@@ -138,6 +144,7 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('closed', () => {
     dshWebView = null
+    toolbarView = null
     if (mainWindow === win) mainWindow = null
   })
 
@@ -164,6 +171,22 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
   }
 
   const content = win.contentView
+  // 主界面工具栏（自有页面：按钮打开会话中心/插件/设置，右侧运行状态）
+  if (!toolbarView) {
+    toolbarView = new WebContentsView({
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        webviewTag: false
+      }
+    })
+    void loadWindowPage(toolbarView, 'toolbar.html')
+  }
+  if (!content.children.includes(toolbarView)) {
+    content.addChildView(toolbarView)
+  }
   // 视图可能因崩溃错误页被移除（showRuntimeErrorOverlay）：重建挂载即可恢复
   if (!dshWebView) {
     dshWebView = new WebContentsView({
@@ -200,8 +223,11 @@ export function showRuntimeErrorOverlay(): void {
 function layoutMainViews(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
   const [width, height] = mainWindow.getContentSize()
+  if (toolbarView) {
+    toolbarView.setBounds({ x: 0, y: 0, width, height: TOOLBAR_HEIGHT })
+  }
   if (dshWebView) {
-    dshWebView.setBounds({ x: 0, y: 0, width, height })
+    dshWebView.setBounds({ x: 0, y: TOOLBAR_HEIGHT, width, height: height - TOOLBAR_HEIGHT })
   }
 }
 

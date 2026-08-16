@@ -22,6 +22,7 @@ import {
   createMainWindow,
   openPluginsWindow,
   openSessionsWindow,
+  openSettingsWindow,
   setupAppMenu,
   showDshWebView,
   showRuntimeErrorOverlay
@@ -31,6 +32,7 @@ import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
 import * as dshfind from './runtime/dshfind'
 import * as sessions from './sessions'
+import * as workspaceFiles from './workspace-files'
 import type {
   ConfigState,
   DiagnosticsResult,
@@ -365,7 +367,23 @@ function buildIpcContext(): IpcContext {
     exportSession: (sessionId, format, includeDescendants) =>
       sessions.exportSession(sessionId, format, includeDescendants ?? false),
     resumeSession: (sessionId: string) => Promise.resolve(sessions.resumeSession(sessionId)),
-    openWorkspaceFolder: (path: string) => sessions.openWorkspaceFolder(path)
+    openWorkspaceFolder: (path: string) => sessions.openWorkspaceFolder(path),
+
+    /* 壳窗口（主界面工具栏）与工作区文件树 */
+    openPluginsWindow: () => {
+      openPluginsWindow()
+      return { ok: true }
+    },
+    openSessionsWindow: () => {
+      openSessionsWindow()
+      return { ok: true }
+    },
+    openSettingsWindow: () => {
+      openSettingsWindow()
+      return { ok: true }
+    },
+    listDirectory: (path: string) => workspaceFiles.listDirectory(path),
+    workspaceGitStatus: (path: string) => workspaceFiles.workspaceGitStatus(path)
   }
 }
 

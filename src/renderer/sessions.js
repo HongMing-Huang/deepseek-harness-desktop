@@ -9,6 +9,12 @@
     viewSub: document.getElementById('viewSub'),
     backBtn: document.getElementById('backBtn'),
     refreshBtn: document.getElementById('refreshBtn'),
+    filesBtn: document.getElementById('filesBtn'),
+    filesView: document.getElementById('filesView'),
+    filesTree: document.getElementById('filesTree'),
+    filesRootPath: document.getElementById('filesRootPath'),
+    filesLegend: document.getElementById('filesLegend'),
+    filesOpenBtn: document.getElementById('filesOpenBtn'),
     searchInput: document.getElementById('searchInput'),
     sourceBadge: document.getElementById('sourceBadge'),
     homeView: document.getElementById('homeView'),
@@ -26,6 +32,14 @@
   var searchTimer = null
   var toastTimer = null
   var pendingExport = null // { sessionId, title }
+
+  /* ── 工作区文件树状态 ── */
+  var fileTreeMode = false
+  var fileRoot = '' // 当前文件树根目录
+  var expandedDirs = {} // dirPath -> true
+  var dirEntries = {} // dirPath -> entries[]
+  var gitChanges = {} // 相对路径 -> 状态码（XY）
+  var gitRepo = false
 
   /* ── 小工具 ── */
 
@@ -66,7 +80,16 @@
     els.viewSub.textContent = sub
     els.backBtn.hidden = next === 'home'
     els.homeView.hidden = next !== 'home'
-    els.sessionsView.hidden = next !== 'workspace' && next !== 'search'
+    els.sessionsView.hidden = (next !== 'workspace' && next !== 'search') || fileTreeMode
+    // 文件按钮：仅真实工作区视图可用（全部会话视图无目录树）
+    els.filesBtn.hidden = !(
+      next === 'workspace' &&
+      currentWorkspace &&
+      currentWorkspace.workspaceId !== null &&
+      typeof currentWorkspace.path === 'string' &&
+      currentWorkspace.path.length > 0
+    )
+    els.filesView.hidden = next !== 'workspace' || !fileTreeMode
     hidePopover()
   }
 
@@ -404,9 +427,170 @@
       })
   }
 
+  /* ── 工作区文件树（只读；点击展开目录 / 点文件用默认应用打开 / git 变更标记） ── */
+
+  function relPathOf(root, full) {
+    if (!full || full.indexOf(root) !== 0) return ''
+    var rel = full.slice(root.length).replace(/^\/+/, '')
+    return rel
+  }
+
+  function gitMark(rel) {
+    if (!gitRepo || !rel) return ''
+    var code = gitChanges[rel]
+    if (!code) return ''
+    // 取工作区状态；未跟踪 ?? → ?
+    var x = code[0]
+    var y = code[1]
+    var mark = y !== ' ' ? y : x
+    if (mark === ' ') mark = x
+    if (mark === '?' || mark === '!') return '?'
+    return mark.toUpperCase()
+  }
+
+  function toggleFilesMode() {
+    if (currentWorkspace && currentWorkspace.workspaceId === null) return // 全部会话视图无文件树
+    fileTreeMode = !fileTreeMode
+    if (fileTreeMode) {
+      fileRoot = currentWorkspace.path || ''
+      els.filesRootPath.textContent = fileRoot || '—'
+      expandedDirs = {}
+      dirEntries = {}
+      gitChanges = {}
+      gitRepo = false
+      els.filesLegend.style.display = 'none'
+      els.filesTree.replaceChildren(el('div', 'empty', '正在读取目录…'))
+      setView(view, els.viewTitle.textContent, els.viewSub.textContent)
+      void api
+        .listDirectory(fileRoot)
+        .then(function (result) {
+          if (!result || !result.ok) {
+            els.filesTree.replaceChildren(
+              el('div', 'empty', (result && result.message) || '目录不可读')
+            )
+            return
+          }
+          dirEntries[fileRoot] = result.entries
+          renderFileTree()
+          void api.workspaceGitStatus(fileRoot).then(function (g) {
+            if (!g || !g.repo) return
+            gitRepo = true
+            g.changes.forEach(function (c) {
+              gitChanges[c.file] = c.code
+            })
+            els.filesLegend.style.display = ''
+            renderFileTree()
+          })
+        })
+        .catch(function () {
+          els.filesTree.replaceChildren(el('div', 'empty', '目录读取失败'))
+        })
+    }
+    setView(view, els.viewTitle.textContent, els.viewSub.textContent)
+  }
+
+  function toggleDir(dirPath, rowId) {
+    if (expandedDirs[dirPath]) {
+      delete expandedDirs[dirPath]
+      var children = document.querySelectorAll('[data-parent="' + rowId + '"]')
+      Array.prototype.forEach.call(children, function (node) {
+        node.remove()
+      })
+      renderFileTree() // 刷新箭头
+      return
+    }
+    expandedDirs[dirPath] = true
+    renderFileTree() // 先渲染箭头与占位
+    if (dirEntries[dirPath]) {
+      renderFileTree()
+      return
+    }
+    void api
+      .listDirectory(dirPath)
+      .then(function (result) {
+        if (result && result.ok) {
+          dirEntries[dirPath] = result.entries
+        }
+        renderFileTree()
+      })
+      .catch(function () {
+        delete expandedDirs[dirPath]
+        renderFileTree()
+      })
+  }
+
+  function renderFileTree() {
+    var rootEntries = dirEntries[fileRoot] || []
+    els.filesTree.replaceChildren()
+    if (rootEntries.length === 0) {
+      els.filesTree.appendChild(el('div', 'empty', '目录为空'))
+      return
+    }
+    renderTreeLevel(rootEntries, fileRoot, 0, els.filesTree, null)
+  }
+
+  function renderTreeLevel(entries, basePath, depth, container, parentId) {
+    entries.forEach(function (entry, idx) {
+      var full = basePath + '/' + entry.name
+      var rowId = parentId ? parentId + '-' + idx : 'r' + idx
+      var row = el('div', 'ft-row' + (entry.dir ? ' ft-row--dir' : ''))
+      row.setAttribute('role', 'treeitem')
+      row.style.paddingLeft = 8 + depth * 14 + 'px'
+      if (parentId) row.dataset.parent = parentId
+      row.dataset.row = rowId
+
+      var arrow = el('span', 'ft-arrow', entry.dir ? (expandedDirs[full] ? '▾' : '▸') : ' ')
+      row.appendChild(arrow)
+      row.appendChild(el('span', 'ft-icon', entry.dir ? '▸▸' : ''))
+      var name = el('span', 'ft-name', entry.name)
+      row.appendChild(name)
+
+      var mark = gitMark(relPathOf(fileRoot, full))
+      if (mark) {
+        var badge = el('span', 'git-mark git-mark-' + mark.toLowerCase(), mark)
+        row.appendChild(badge)
+      }
+      if (!entry.dir && entry.size > 0) {
+        row.appendChild(el('span', 'ft-size', formatSize(entry.size)))
+      }
+
+      if (entry.dir) {
+        row.addEventListener('click', function () {
+          toggleDir(full, rowId)
+        })
+      } else {
+        row.title = full
+        row.addEventListener('click', function () {
+          void api.openWorkspaceFolder(full).catch(function () {
+            showToast('打开文件失败', 'error')
+          })
+        })
+      }
+      container.appendChild(row)
+
+      if (entry.dir && expandedDirs[full] && dirEntries[full]) {
+        renderTreeLevel(dirEntries[full], full, depth + 1, container, rowId)
+      }
+    })
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+  }
+
   /* ── 事件绑定 ── */
 
   function bindEvents() {
+    els.filesBtn.addEventListener('click', toggleFilesMode)
+    els.filesOpenBtn.addEventListener('click', function () {
+      if (fileRoot) {
+        void api.openWorkspaceFolder(fileRoot).catch(function () {
+          showToast('打开目录失败', 'error')
+        })
+      }
+    })
     els.backBtn.addEventListener('click', function () {
       currentWorkspace = null
       els.searchInput.value = ''
