@@ -104,8 +104,11 @@ const childEnv = {
   ...process.env,
   DSH_HOME: dshHome,
   HOME: fakeHome,
-  // E2E 钩子：自动打开会话中心窗口（主进程仅在非打包态 + 该环境变量下响应）
-  DSH_E2E_WINDOW: 'sessions',
+  // macOS 上 Electron 忽略 HOME：显式覆盖 userData，保证偏好/日志/单实例锁全部隔离
+  DSH_USER_DATA: join(fakeHome, 'userData'),
+  // E2E 钩子：自动打开指定自有窗口（主进程仅在非打包态 + 该环境变量下响应；
+  // 默认 sessions，可经环境变量覆盖为 plugins 以抓取插件窗口截图）
+  DSH_E2E_WINDOW: process.env.DSH_E2E_WINDOW || 'sessions',
   // 生产形态启动：显式移除 dev server 变量，确保 preload 走 file: 分支
   ELECTRON_RENDERER_URL: ''
 }
@@ -405,11 +408,12 @@ try {
   const folderRes = await splash.evaluate(() => window.api.openWorkspaceFolder('/definitely/not/exists'))
   assertOk(folderRes && typeof folderRes.ok === 'boolean', 'f6 openWorkspaceFolder 返回结构合法', JSON.stringify(folderRes))
 
-  /* ════════ Step g：会话中心窗口 UI（DSH_E2E_WINDOW 钩子打开） ════════ */
-  log('— Step g：会话中心窗口 —')
+  /* ════════ Step g：自有窗口 UI（DSH_E2E_WINDOW 钩子打开，默认 sessions） ════════ */
+  const e2eWindow = process.env.DSH_E2E_WINDOW || 'sessions'
+  log(`— Step g：${e2eWindow} 窗口 —`)
   const sessionsPage = await waitFor(
-    () => findPage((u) => u.includes('sessions.html')),
-    { timeoutMs: 60_000, label: '会话中心窗口出现' }
+    () => findPage((u) => u.includes(`${e2eWindow}.html`)),
+    { timeoutMs: 60_000, label: `${e2eWindow} 窗口出现` }
   )
   await sessionsPage.waitForLoadState('domcontentloaded')
   await waitFor(
@@ -419,12 +423,12 @@ try {
   const wsOnSessions = await sessionsPage.evaluate(() => window.api.listWorkspaces())
   assertOk(
     Array.isArray(wsOnSessions?.workspaces),
-    'g1 会话中心窗口 api.listWorkspaces 可用',
+    `g1 ${e2eWindow} 窗口 api 可用`,
     JSON.stringify(wsOnSessions)
   )
-  await sleep(1000) // 等工作区卡片渲染完成再截图
-  await sessionsPage.screenshot({ path: join(artifactsDir, '04-sessions.png') })
-  log('截图 04-sessions.png')
+  await sleep(1000) // 等页面渲染完成再截图
+  await sessionsPage.screenshot({ path: join(artifactsDir, `04-${e2eWindow}.png`) })
+  log(`截图 04-${e2eWindow}.png`)
 
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())

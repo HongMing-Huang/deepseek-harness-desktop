@@ -25,7 +25,8 @@ Electron 进程输出尾部）。
 | 环境变量 | 用途 |
 | --- | --- |
 | `DSH_HOME` | dsh 数据目录（`.credentials.yaml` / `settings.yaml` / 插件 profile），主进程 `paths.ts` 优先读取该变量 |
-| `HOME` | 重定向 Electron `userData`（偏好 / 日志）与 Chromium 缓存，避免污染真实用户目录 |
+| `HOME` | 重定向 Chromium 缓存等（注意：Electron 在 macOS 上忽略 HOME，见下） |
+| `DSH_USER_DATA` | 显式覆盖 Electron `userData`（偏好 / 日志 / 单实例锁）。macOS 上 `app.getPath('home')` 恒为真实用户目录，必须经该变量隔离 |
 
 **全程不读写真实 `~/.dsh`**；脚本结束时递归删除两个临时目录。
 截图等证据落在 `tests/e2e/artifacts/`（已 gitignore，仅本地保留）。

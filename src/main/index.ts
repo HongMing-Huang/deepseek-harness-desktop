@@ -58,6 +58,14 @@ const STAGE_PERCENT: Record<string, number> = {
   'wait-ready': 82
 }
 
+/**
+ * 测试隔离：Electron 在 macOS 上忽略 HOME 环境变量（home 恒为真实用户目录），
+ * 测试需显式覆盖 userData，否则会读写真实偏好目录并与正在运行的应用抢单实例锁。
+ */
+if (process.env.DSH_USER_DATA) {
+  app.setPath('userData', process.env.DSH_USER_DATA)
+}
+
 /** 单实例锁：重复启动时聚焦已有窗口 */
 if (!app.requestSingleInstanceLock()) {
   app.quit()
