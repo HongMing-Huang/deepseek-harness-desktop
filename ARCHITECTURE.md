@@ -54,8 +54,8 @@ Deepseek（仓库 `deepseek-harness-desktop`）是 DeepSeek Harness 官方 Web U
 
 - **精选目录**：`plugin-catalog.json`（29 条，npm/scoped 与 github 直装两类，pin 验证时版本/提交）；安装走官方 `dsh plugin --profile web add <spec>` 转发 pnpm；
 - **dshfind 在线市场**：拉取 dshfind.com/zh/plugins 解析卡片（1200+），userData 缓存 24h 本地搜索；安装复用其官方命令 `github:<author>/<name>`；
-- **GitHub 直装**：规格白名单（仅 github.com git 规格）；安装/全量更新前按官方指引把包名写入 profile `pnpm-workspace.yaml` `allowBuilds`（pnpm 10 映射形态），失败且命中 `Ignored build scripts` 时按精确 key 补放行并重试一次；
-- **健康检查 / 一键全量更新**：包完整性四态徽章；`dsh plugin update` 转发 pnpm update，复用进度管线与并发锁。
+- **GitHub 直装**：规格白名单（仅 github.com git 规格）；安装前按官方指引把包名写入 profile `pnpm-workspace.yaml` `allowBuilds`（pnpm 10 映射形态），失败且命中 `Ignored build scripts` 时按精确 key 补放行并重试一次；
+- **健康检查**：包完整性四态徽章显示已安装插件状态。
 
 ## 安全边界
 

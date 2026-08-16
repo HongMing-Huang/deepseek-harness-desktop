@@ -1,4 +1,3 @@
-import { applyAccent } from './theme.js'
 // Deepseek 插件管理窗口逻辑：经 window.api（preload 白名单）读写插件状态。
 // 纯原生 JS，无框架依赖。三区：已安装 / 目录搜索 / OpProgress 进度。
 ;(function () {
@@ -9,7 +8,6 @@ import { applyAccent } from './theme.js'
     installedList: document.getElementById('installedList'),
     healthSummary: document.getElementById('healthSummary'),
     healthBtn: document.getElementById('healthBtn'),
-    updateAllBtn: document.getElementById('updateAllBtn'),
     tabCatalog: document.getElementById('tabCatalog'),
     tabMarket: document.getElementById('tabMarket'),
     marketMeta: document.getElementById('marketMeta'),
@@ -26,11 +24,6 @@ import { applyAccent } from './theme.js'
   }
 
   var api = window.api
-  if (api) {
-    api.getConfig().then(function (c) {
-      applyAccent(c.preferences.accent)
-    }).catch(function () {})
-  }
   var installed = [] // 已装插件名集合（目录内标记状态用）
   var installedFull = [] // 已装插件完整条目（健康检查后重渲染用）
   var catalog = []
@@ -136,7 +129,6 @@ import { applyAccent } from './theme.js'
     els.healthSummary.textContent = parts.join(' · ')
     els.healthSummary.className =
       'zone__health' + (result.updatableCount > 0 || result.brokenCount > 0 ? ' is-warn' : ' is-ok')
-    els.updateAllBtn.disabled = result.updatableCount === 0
   }
 
   function refreshHealth() {
@@ -156,29 +148,6 @@ import { applyAccent } from './theme.js'
       .finally(function () {
         els.healthBtn.disabled = false
         els.healthBtn.textContent = '检查健康'
-      })
-  }
-
-  /* ── 一键全量更新（plugin-update 进度复用 OpProgress 区） ── */
-
-  function doUpdateAll() {
-    if (!api || restartPending) return
-    setAllButtonsDisabled(true)
-    els.updateAllBtn.disabled = true
-    showProgress('start', '正在提交全量更新请求…')
-    api
-      .updateAllPlugins()
-      .then(function (result) {
-        setAllButtonsDisabled(false)
-        if (!result.ok) {
-          showProgress('error', result.message || '全量更新失败')
-        }
-        void refreshLists()
-        void refreshHealth()
-      })
-      .catch(function () {
-        setAllButtonsDisabled(false)
-        showProgress('error', '全量更新请求失败')
       })
   }
 
@@ -558,7 +527,7 @@ import { applyAccent } from './theme.js'
 
   function showProgress(state, message) {
     els.progressZone.hidden = false
-    els.progressLabel.textContent = message || ''
+    els.progressLabel.textContent = state === 'error' ? displayPluginError(message) : message || ''
     els.progressLabel.classList.toggle('is-error', state === 'error')
     els.progressLabel.classList.toggle('is-ok', state === 'done')
 
@@ -573,6 +542,14 @@ import { applyAccent } from './theme.js'
     }
     els.restartBtn.hidden = state !== 'done'
     restartPending = state === 'done'
+  }
+
+  function displayPluginError(message) {
+    var text = String(message || '')
+    if (!text || /\bat \w+Module|\bpnpm failed\b|插件命令退出码/.test(text)) {
+      return '操作失败，请检查网络或插件兼容性后重试。'
+    }
+    return text.split(/\r?\n/)[0].slice(0, 180)
   }
 
   function setProgressPercent(percent) {
@@ -658,9 +635,6 @@ import { applyAccent } from './theme.js'
     })
     els.healthBtn.addEventListener('click', function () {
       void refreshHealth()
-    })
-    els.updateAllBtn.addEventListener('click', function () {
-      void doUpdateAll()
     })
     bindProgressEvents()
     bindRestart()

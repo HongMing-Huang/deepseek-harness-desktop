@@ -22,7 +22,6 @@ import {
   createMainWindow,
   openPluginsWindow,
   openSessionsWindow,
-  openSettingsWindow,
   setupAppMenu,
   showDshWebView,
   showRuntimeErrorOverlay
@@ -369,17 +368,13 @@ function buildIpcContext(): IpcContext {
     resumeSession: (sessionId: string) => Promise.resolve(sessions.resumeSession(sessionId)),
     openWorkspaceFolder: (path: string) => sessions.openWorkspaceFolder(path),
 
-    /* 壳窗口（主界面工具栏）与工作区文件树 */
+    /* 壳窗口（原生菜单入口）与工作区文件树 */
     openPluginsWindow: () => {
       openPluginsWindow()
       return { ok: true }
     },
     openSessionsWindow: () => {
       openSessionsWindow()
-      return { ok: true }
-    },
-    openSettingsWindow: () => {
-      openSettingsWindow()
       return { ok: true }
     },
     listDirectory: (path: string) => workspaceFiles.listDirectory(path),
@@ -427,9 +422,6 @@ app.whenReady().then(async () => {
   trayController = new TrayController({
     supervisor,
     showMainWindow: showMainWindowFromTray,
-    checkUpdates: () => {
-      void updater?.runManualCheck()
-    },
     onUpdaterStatus: (listener) =>
       updater ? updater.onStatus(listener) : () => {}
   })

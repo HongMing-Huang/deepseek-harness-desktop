@@ -5,14 +5,14 @@ import type { RuntimePhase, UpdaterStatusPayload } from '../shared/ipc'
 import { classifyStartupError } from './runtime/error-classifier'
 import type { ProcessSupervisor } from './runtime/process-supervisor'
 import { createNotificationGate, trayStatusText } from './notify-gate'
-import { openPluginsWindow, openSessionsWindow, openSettingsWindow } from './windows'
+import { openPluginsWindow, openSessionsWindow } from './windows'
 import { logger } from './logger'
 
 /**
  * 托盘常驻 + 原生通知：
  * - 图标：whale-tray.png（黑色鲸鱼剪影透明底）；macOS 缩放 16/32 并
  *   setTemplateImage（自动适配菜单栏明暗），Linux/Windows 用普通 32px；
- * - 菜单：显示主窗口 / 会话中心 / 插件市场 / 设置 / 检查更新 / 退出；
+ * - 菜单：显示主窗口 / 会话中心 / 插件市场 / 退出；
  * - 点击托盘：主窗口不存在则创建（并引导运行时），存在则显示+聚焦；
  * - 状态感知：订阅 supervisor 的 progress/error/ready/exit 与更新器状态，
  *   tooltip 附加「启动中/运行中/出错/更新中」；
@@ -24,8 +24,6 @@ import { logger } from './logger'
 export interface TrayDeps {
   /** 显示主窗口（不存在则创建并引导运行时；存在则显示+聚焦） */
   showMainWindow(): void
-  /** 手动检查更新（复用更新器完整链路：发现新版弹窗引导） */
-  checkUpdates(): void
   /** 运行时托管（订阅 progress/error/ready/exit 更新 tooltip 与失败通知） */
   supervisor: ProcessSupervisor
   /** 订阅更新器状态（available → 新版本通知；downloading → tooltip 更新中） */
@@ -62,14 +60,6 @@ export class TrayController {
     this.detachUpdater = this.deps.onUpdaterStatus((status) => {
       this.updateBusy = status.state === 'downloading'
       this.refreshTooltip()
-      if (status.state === 'available' && status.latestDsh) {
-        this.notify({
-          key: `update-available:${status.latestDsh}`,
-          title: '发现 dsh 新版本',
-          body: `dsh ${status.latestDsh} 可用，可从托盘或设置中检查并更新。`,
-          focus: 'main'
-        })
-      }
     })
     logger.info('托盘已启用')
   }
@@ -157,9 +147,6 @@ export class TrayController {
       { type: 'separator' },
       { label: '会话中心', click: () => openSessionsWindow() },
       { label: '插件市场', click: () => openPluginsWindow() },
-      { label: '设置', click: () => openSettingsWindow() },
-      { type: 'separator' },
-      { label: '检查更新', click: () => this.deps.checkUpdates() },
       { type: 'separator' },
       { label: '退出', click: () => app.quit() }
     ])

@@ -1,0 +1,4 @@
+[submodule "upstream/deepseek-harness"]
+	path = upstream/deepseek-harness
+	url = https://github.com/deepseek-ai/deepseek-harness.git
+	branch = master

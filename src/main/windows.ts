@@ -12,11 +12,10 @@ import { join } from 'node:path'
  * 窗口与视图布局的单一职责小模块：
  * - 主窗口：splash 承载于窗口自身 webContents；运行时就绪后改为
  *   contentView 单子视图 —— dshWebView（全幅，加载 dsh web，无 preload）；
- * - 设置 / 插件窗口（单例，重复打开时聚焦）；
- * - 应用菜单（设置入口 Cmd/Ctrl+,、工具→插件…）。
+ * - 会话 / 插件窗口（单例，重复打开时聚焦）；
+ * - 应用菜单提供辅助功能入口，不覆盖官方 Web 内容。
  */
 
-let settingsWindow: BrowserWindow | null = null
 let pluginsWindow: BrowserWindow | null = null
 let sessionsWindow: BrowserWindow | null = null
 
@@ -24,9 +23,6 @@ let sessionsWindow: BrowserWindow | null = null
 
 let mainWindow: BrowserWindow | null = null
 let dshWebView: WebContentsView | null = null
-let toolbarView: WebContentsView | null = null
-/** 主界面工具栏高度（按钮栏：会话中心 / 插件 / 设置 + 运行状态） */
-const TOOLBAR_HEIGHT = 42
 /** 当前 dsh web 监听端口（就绪后由 showDshWebView 解析；外链守卫比对用） */
 let currentDshPort: number | null = null
 
@@ -80,12 +76,12 @@ function isLocalDshWebUrl(url: string): boolean {
 }
 
 /**
- * 自有窗口（设置/插件/会话中心）外链策略：
+ * 自有窗口（插件/会话中心）外链策略：
  * - window.open / target=_blank：https 链接一律交给系统浏览器（openExternal）并 deny；
  * - 页面导航：仅允许回到本窗口自己的页面地址（三个自有页面的精确前缀），
  *   其余 will-navigate 阻止——防止任意 file:// 本地文件读取或远程跳转劫持。
  */
-const OWN_PAGES = ['settings.html', 'plugins.html', 'sessions.html']
+const OWN_PAGES = ['plugins.html', 'sessions.html']
 
 function ownPageUrls(): string[] {
   const devServer = process.env['ELECTRON_RENDERER_URL']
@@ -144,7 +140,6 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('closed', () => {
     dshWebView = null
-    toolbarView = null
     if (mainWindow === win) mainWindow = null
   })
 
@@ -171,22 +166,6 @@ export function showDshWebView(win: BrowserWindow, url: string): void {
   }
 
   const content = win.contentView
-  // 主界面工具栏（自有页面：按钮打开会话中心/插件/设置，右侧运行状态）
-  if (!toolbarView) {
-    toolbarView = new WebContentsView({
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-        webviewTag: false
-      }
-    })
-    void loadWindowPage(toolbarView, 'toolbar.html')
-  }
-  if (!content.children.includes(toolbarView)) {
-    content.addChildView(toolbarView)
-  }
   // 视图可能因崩溃错误页被移除（showRuntimeErrorOverlay）：重建挂载即可恢复
   if (!dshWebView) {
     dshWebView = new WebContentsView({
@@ -223,46 +202,9 @@ export function showRuntimeErrorOverlay(): void {
 function layoutMainViews(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
   const [width, height] = mainWindow.getContentSize()
-  if (toolbarView) {
-    toolbarView.setBounds({ x: 0, y: 0, width, height: TOOLBAR_HEIGHT })
-  }
   if (dshWebView) {
-    dshWebView.setBounds({ x: 0, y: TOOLBAR_HEIGHT, width, height: height - TOOLBAR_HEIGHT })
+    dshWebView.setBounds({ x: 0, y: 0, width, height })
   }
-}
-
-/* ── 设置窗口（单例） ── */
-
-/** 打开设置窗口（单例：已存在则聚焦） */
-export function openSettingsWindow(): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.focus()
-    return
-  }
-  settingsWindow = new BrowserWindow({
-    width: 460,
-    height: 580,
-    minWidth: 440,
-    minHeight: 540,
-    show: false,
-    title: '设置',
-    backgroundColor: '#0b0d12',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webviewTag: false
-    }
-  })
-
-  applyOwnWindowLinkPolicy(settingsWindow)
-  settingsWindow.on('ready-to-show', () => settingsWindow?.show())
-  void loadWindowPage(settingsWindow, 'settings.html')
-  settingsWindow.on('closed', () => {
-    settingsWindow = null
-  })
 }
 
 /* ── 插件窗口（单例） ── */
@@ -280,7 +222,7 @@ export function openPluginsWindow(): void {
     minHeight: 480,
     show: false,
     title: '插件',
-    backgroundColor: '#0b0d12',
+    backgroundColor: '#f7f8fa',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -314,7 +256,7 @@ export function openSessionsWindow(): void {
     minHeight: 560,
     show: false,
     title: '会话',
-    backgroundColor: '#0b0d12',
+    backgroundColor: '#f7f8fa',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -335,7 +277,7 @@ export function openSessionsWindow(): void {
 
 /* ── 应用菜单 ── */
 
-/** 应用菜单：设置 / 插件入口 + 基础编辑能力（输入框复制粘贴必需） */
+/** 应用菜单：会话 / 插件入口 + 基础编辑能力（输入框复制粘贴必需） */
 export function setupAppMenu(): void {
   const isMac = process.platform === 'darwin'
   const isDev = Boolean(process.env['ELECTRON_RENDERER_URL'])
@@ -345,8 +287,6 @@ export function setupAppMenu(): void {
         {
           label: app.getName(),
           submenu: [
-            { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => openSettingsWindow() },
-            { type: 'separator' },
             { label: '会话中心…', click: () => openSessionsWindow() },
             { label: '插件…', click: () => openPluginsWindow() },
             { type: 'separator' },
@@ -361,8 +301,6 @@ export function setupAppMenu(): void {
         {
           label: '文件',
           submenu: [
-            { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => openSettingsWindow() },
-            { type: 'separator' },
             { role: 'quit', label: '退出' }
           ]
         }

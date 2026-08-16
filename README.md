@@ -14,7 +14,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square" alt="MIT License"></a>
 </p>
 
-Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本地 Web UI 打包为开箱即用的桌面应用：内嵌 Node / pnpm / dsh 运行时，零环境依赖；官方 dsh web **一律不改动、不注入**，桌面壳只做体验层——会话中心、插件市场、托盘通知，全部外挂实现。
+Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本地 Web UI 打包为开箱即用的桌面应用：内嵌 Node / pnpm / dsh 运行时，零环境依赖；官方 dsh web **一律不改动、不注入**，主窗口不覆盖工具栏，会话中心与插件市场通过原生菜单打开。
 
 ## 界面预览
 
@@ -27,7 +27,7 @@ Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本
 - **零门槛启动**：Node、pnpm、dsh 全部内置随包分发，不碰系统环境，删掉 App 即彻底卸载；
 - **官方体验不打折**：原样内嵌官方 Web 界面，运行时来自官方 npm 分发并做来源校验，每 6 小时自动检查新版、人工验证后合并，不做静默升级；
 - **会话管理像桌面应用**：项目卡片首页（Trae 风格）+ 跨工作区浏览 / 搜索 / 恢复 / 导出（官方 zip / Markdown / JSONL），对官方数据全程只读；
-- **插件装得省心**：精选目录 + dshfind 在线市场（1200+ 条目搜索即装），兼容徽章、健康检查、一键全量更新，源码插件一键直装；
+- **插件装得省心**：精选目录 + dshfind 在线市场（1200+ 条目搜索即装），兼容徽章、健康检查，源码插件一键直装；
 - **出错有人管**：启动失败分类、端口占用清理、双轨更新失败自动回退，托盘通知随时送达。
 
 ## 安装
@@ -54,6 +54,8 @@ npm run dist:mac-arm64     # 本机默认
 npm run dist:linux-x64
 ```
 
+官方完整源码以 Git 子模块固定在 `upstream/deepseek-harness`（当前锁定上游提交）；初始化检出使用 `git submodule update --init --recursive`。它用于审阅和后续原生客户端集成。当前稳定发行运行时仍采用官方 dsh 发布包；上游本身是 pnpm 工作区，因此不能将子模块误称为已经完成的无 Node/pnpm 构建替换。
+
 产物输出至 `release/`；`resources/runtime/`、`out/`、`release/`、`node_modules/` 均不入版本库。
 
 ## 功能详解
@@ -61,7 +63,7 @@ npm run dist:linux-x64
 **红线**：官方 dsh web 不修改、不注入（`dshWebView` 无 preload、强沙箱）；dsh 运行时始终来自官方 npm 分发。
 
 - **会话中心**（菜单「工具 → 会话中心」`Cmd/Ctrl+Shift+S`，托盘同级入口）：列表数据来自官方 `workspace.list` / `session.list` RPC 与 `~/.dsh` 本地存储双源合并，web 未就绪自动回退本地直读；全文搜索走官方 `session.search`，部署关闭索引时回退标题/路径匹配；导出走官方 `/api/session.export`（zip 含子代理会话），Markdown / JSONL 由本地按官方 zstd 帧算法解码渲染（离线可用）；「恢复」打开官方 Web 界面并定位会话所在项目目录。**对 `~/.dsh` 全程只读。**
-- **插件市场 2.0**：目录条目分 `npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发，`git+https…@<提交>` 直装）两类来源，直装规格经主进程白名单校验；安装/全量更新时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（pnpm 10 映射形态）放行构建脚本；健康检查四态徽章 + 一键全量更新（`dsh plugin update` 转发 pnpm update）。
+- **插件市场 2.0**：目录条目分 `npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发，`git+https…@<提交>` 直装）两类来源，直装规格经主进程白名单校验；安装时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（pnpm 10 映射形态）放行构建脚本；健康检查四态徽章显示已安装插件状态。
 - **dshfind 在线市场**：应用内「插件 → dshfind 市场」Tab，主进程拉取并解析 dshfind.com 列表页（1200+ 条目），userData 缓存 24h 本地搜索；安装复用其官方命令 `github:<author>/<name>`；网络/结构变化均明确降级，不产出垃圾条目。
 
 ## 更新边界
@@ -95,7 +97,7 @@ src/
 │       ├── process-supervisor.ts  # dsh web 子进程托管
 │       ├── dsh-installer.ts   # dsh 侧载安装/校验/失败回退
 │       ├── port-doctor.ts     # 端口占用诊断与清理
-│       ├── plugins.ts         # 插件安装/卸载/健康/全量更新/直装
+│       ├── plugins.ts         # 插件安装/卸载/健康/直装
 │       ├── plugin-progress.ts # pnpm 输出进度解析
 │       ├── dshfind.ts         # dshfind 在线市场（拉取/解析/缓存/搜索）
 │       ├── updater.ts         # 双轨更新（壳 Release + dsh 热切换）

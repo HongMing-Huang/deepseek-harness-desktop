@@ -1,4 +1,3 @@
-import { applyAccent } from './theme.js'
 // Deepseek splash 逻辑：经 window.api（preload 白名单）订阅运行时状态与操作进度。
 // 纯原生 JS，无框架依赖。
 ;(function () {
@@ -256,11 +255,6 @@ import { applyAccent } from './theme.js'
 
   if (window.api) {
     var api = window.api
-  if (api) {
-    api.getConfig().then(function (c) {
-      applyAccent(c.preferences.accent)
-    }).catch(function () {})
-  }
     api.onStatus(render)
     api.onOpProgress(handleOpProgress)
 

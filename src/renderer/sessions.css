@@ -86,8 +86,8 @@ body {
 }
 
 .btn:hover {
-  background: #161a24;
-  border-color: rgba(139, 145, 163, 0.32);
+  background: #f9fafb;
+  border-color: var(--line-strong);
 }
 
 .btn:disabled {
@@ -102,8 +102,8 @@ body {
 }
 
 .btn--primary:hover {
-  background: #5d79ff;
-  border-color: #5d79ff;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 .btn--ghost {
@@ -156,9 +156,9 @@ body {
 }
 
 .badge--ok {
-  color: #b9ecd4;
-  background: rgba(61, 220, 151, 0.12);
-  border: 1px solid rgba(61, 220, 151, 0.35);
+  color: #067647;
+  background: #ecfdf3;
+  border: 1px solid #a6f4c5;
 }
 
 .badge--muted {
@@ -205,7 +205,7 @@ body {
 
 .card:hover {
   border-color: var(--accent-soft);
-  background: #12161f;
+  background: #f9fafb;
   transform: translateY(-1px);
 }
 
@@ -220,9 +220,9 @@ body {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: rgba(77, 107, 254, 0.14);
-  border: 1px solid rgba(77, 107, 254, 0.3);
-  color: #9db1ff;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -363,12 +363,12 @@ body {
 .popover {
   position: fixed;
   z-index: 20;
-  background: #141824;
+  background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 6px;
   min-width: 240px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.14);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -390,7 +390,7 @@ body {
 }
 
 .popover__item:hover {
-  background: rgba(77, 107, 254, 0.14);
+  background: #eff6ff;
 }
 
 .popover__name {
@@ -410,25 +410,25 @@ body {
   left: 50%;
   bottom: 22px;
   transform: translateX(-50%);
-  background: #141824;
+  background: #fff;
   border: 1px solid var(--line);
   color: var(--ink);
   font-size: 12px;
   padding: 9px 16px;
   border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.14);
   z-index: 30;
   max-width: 72%;
 }
 
 .toast.is-error {
-  border-color: rgba(240, 86, 79, 0.5);
-  color: #ffd7d5;
+  border-color: #fecdca;
+  color: #d92d20;
 }
 
 .toast.is-ok {
-  border-color: rgba(61, 220, 151, 0.45);
-  color: #c9f2e2;
+  border-color: #a6f4c5;
+  color: #067647;
 }
 
 /* ── 滚动条 ── */
@@ -452,8 +452,8 @@ body {
 /* ── 全部会话卡片（置顶强调） ── */
 
 .card--all {
-  border-color: rgba(77, 107, 254, 0.45);
-  background: linear-gradient(135deg, rgba(77, 107, 254, 0.12), rgba(16, 19, 26, 0.6));
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .card--all .card__icon {

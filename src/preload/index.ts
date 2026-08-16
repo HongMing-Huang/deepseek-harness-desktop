@@ -59,10 +59,9 @@ const api: DeepseekApi = {
   resumeSession: (sessionId: string) => ipcRenderer.invoke(IpcChannels.SessionsResume, sessionId),
   openWorkspaceFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SessionsOpenFolder, path),
 
-  /* 壳窗口（主界面工具栏） */
+  /* 壳窗口（原生菜单入口） */
   openPluginsWindow: () => ipcRenderer.invoke(IpcChannels.ShellOpenPlugins),
   openSessionsWindow: () => ipcRenderer.invoke(IpcChannels.ShellOpenSessions),
-  openSettingsWindow: () => ipcRenderer.invoke(IpcChannels.ShellOpenSettings),
 
   /* 工作区文件树 */
   listDirectory: (path: string) => ipcRenderer.invoke(IpcChannels.WorkspaceListDir, path),

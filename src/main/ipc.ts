@@ -64,7 +64,6 @@ export interface IpcContext {
   openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
   openPluginsWindow(): { ok: boolean }
   openSessionsWindow(): { ok: boolean }
-  openSettingsWindow(): { ok: boolean }
   listDirectory(path: string): Promise<WorkspaceListDirResult>
   workspaceGitStatus(path: string): Promise<WorkspaceGitStatusResult>
 
@@ -126,7 +125,6 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   )
   ipcMain.handle(IpcChannels.ShellOpenPlugins, () => ctx.openPluginsWindow())
   ipcMain.handle(IpcChannels.ShellOpenSessions, () => ctx.openSessionsWindow())
-  ipcMain.handle(IpcChannels.ShellOpenSettings, () => ctx.openSettingsWindow())
   ipcMain.handle(IpcChannels.WorkspaceListDir, (_e, path: string) => ctx.listDirectory(path))
   ipcMain.handle(IpcChannels.WorkspaceGitStatus, (_e, path: string) =>
     ctx.workspaceGitStatus(path)

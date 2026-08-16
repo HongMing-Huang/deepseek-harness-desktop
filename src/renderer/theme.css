@@ -1,66 +1,25 @@
-/* ============================================================
-   Deepseek 统一设计系统（自有页面共用）
-   颜色 / 字体 / 圆角 / 分隔线全部在此定义，各页面不再各自声明。
-   官方 dsh web 不引用本文件、不受任何影响（只做添加，不做更改）。
-   主题强调色：经 html[data-accent] 切换，可在「设置 → 外观」调整。
-   ============================================================ */
-
+/* 应用自有窗口使用与官方 Web 相近的浅色系统配色。 */
 :root {
-  /* 基础色板 */
-  --bg: #0b0d12;
-  --bg-raised: #10131a;
-  --bg-sunken: #08090e;
-  --ink: #e8eaf0;
-  --ink-dim: #8b91a3;
-  --ink-faint: #4c5264;
-
-  /* 强调色（默认品牌蓝） */
-  --accent: #4d6bfe;
-  --accent-strong: #5d79ff;
-  --accent-soft: rgba(77, 107, 254, 0.16);
-  --accent-border: rgba(77, 107, 254, 0.45);
-  --accent-ink: #c3d0ff;
-
-  /* 语义色 */
-  --ok: #3ddc97;
-  --warn: #d9a441;
-  --error: #f0564f;
-  --err: #f0564f;
-
-  /* 结构 */
-  --line: rgba(139, 145, 163, 0.16);
-  --line-strong: rgba(139, 145, 163, 0.3);
-  --radius: 12px;
-  --radius-sm: 8px;
-
-  /* 字体 */
+  --bg: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f7f8fa;
+  --ink: #1f2329;
+  --ink-dim: #667085;
+  --ink-faint: #98a2b3;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent-border: rgba(37, 99, 235, 0.34);
+  --accent-ink: #1d4ed8;
+  --ok: #12b76a;
+  --warn: #d97706;
+  --error: #f04438;
+  --err: #f04438;
+  --line: #eaecf0;
+  --line-strong: #d0d5dd;
+  --radius: 10px;
+  --radius-sm: 7px;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  --sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+  --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
     'Helvetica Neue', sans-serif;
-}
-
-/* 强调色主题（设置 → 外观） */
-html[data-accent='green'] {
-  --accent: #22c55e;
-  --accent-strong: #3ddc97;
-  --accent-soft: rgba(34, 197, 94, 0.16);
-  --accent-border: rgba(34, 197, 94, 0.45);
-  --accent-ink: #b9ecd4;
-}
-
-html[data-accent='violet'] {
-  --accent: #8b5cf6;
-  --accent-strong: #a78bfa;
-  --accent-soft: rgba(139, 92, 246, 0.16);
-  --accent-border: rgba(139, 92, 246, 0.5);
-  --accent-ink: #d5c8ff;
-}
-
-html[data-accent='amber'] {
-  --accent: #f59e0b;
-  --accent-strong: #fbbf24;
-  --accent-soft: rgba(245, 158, 11, 0.16);
-  --accent-border: rgba(245, 158, 11, 0.5);
-  --accent-ink: #fde6bd;
 }

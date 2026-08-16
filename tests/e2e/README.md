@@ -37,7 +37,7 @@ Electron 进程输出尾部）。
 | --- | --- | --- |
 | a 首启引导 | 全新 `DSH_HOME` 出现欢迎卡；保存 API Key 后 `.credentials.yaml` 存在、含该键、mode=0600 | `01-onboarding.png` |
 | b 启动进度与进入 web | OpProgress(boot) 事件流（done；start/update/done 由 restart 轮完整验证）；dsh web 视图加载 127.0.0.1 内容 | `02-main-web.png` |
-| c 设置与模型 | `getConfig` 掩码不回明文；`saveModel` 写入 `settings.yaml` 的 `agent-default-model`；`saveApiKey` 幂等且权限保持 0600 | `03-settings-ipc.png` |
+| c 凭据与模型 IPC | `getConfig` 掩码不回明文；`saveModel` 写入 `settings.yaml` 的 `agent-default-model`；`saveApiKey` 幂等且权限保持 0600 | `03-settings-ipc.png` |
 | d 插件目录与并发锁 | catalog ≥8 条且字段齐全；全新环境 `listPlugins` 为空；并发第二个操作被「已有插件操作进行中」拒绝（探测包名不存在，不落任何真实插件） | 无 |
 | e 更新检查降级 | `checkUpdater()` 不抛错、返回合法状态（占位仓库静默跳过）；主窗口仍存活 | 无 |
 | f 会话中心与插件健康 | `listWorkspaces` 返回数组；`listSessions` official/local 双源结构合法；`searchSessions` 空结果不抛错；全新环境健康检查无异常；`resumeSession(空)` 与 `openWorkspaceFolder` 语义正确 | 无 |

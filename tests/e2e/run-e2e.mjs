@@ -11,7 +11,7 @@
  *   3. 等 CDP 端口就绪后 chromium.connectOverCDP 连接，对全部 page target
  *      挂 console / pageerror 监听（断言失败时输出辅助诊断）。
  *   4. 依次驱动并断言七个场景（a 首启引导 / b 启动进度与 web /
- *      c 设置与模型 / d 插件目录与并发锁 / e 更新检查降级 /
+ *      c 凭据与模型 IPC / d 插件目录与并发锁 / e 更新检查降级 /
  *      f 会话中心与插件健康 / g 会话中心窗口 UI），
  *      截图落 tests/e2e/artifacts/。
  *   5. 优雅退出：SIGTERM Electron（主进程 before-quit 会停掉 dsh web），
@@ -263,7 +263,7 @@ try {
   )
   assertOk(bootEvents2.some((e) => e.state === 'done'), 'b6 restart 轮 OpProgress(boot) 收到 done', JSON.stringify(bootEvents2))
   
-  /* ════════ Step c：设置与模型配置（IPC） ════════ */
+  /* ════════ Step c：凭据与模型配置（IPC） ════════ */
   log('— Step c：配置 IPC（splash 上下文） —')
   const cfg1 = await splash.evaluate(() => window.api.getConfig())
   assertOk(cfg1?.apiKey?.configured === true, 'c1 getConfig 反映密钥已配置（掩码不回明文）', `masked=${cfg1?.apiKey?.masked}`)
@@ -436,24 +436,12 @@ try {
   await sessionsPage.screenshot({ path: join(artifactsDir, `04-${e2eWindow}.png`) })
   log(`截图 04-${e2eWindow}.png`)
 
-  /* ════════ Step h：主界面工具栏 + 工作区文件树 API ════════ */
-  log('— Step h：工具栏 + 工作区文件树 —')
-  const toolbarPage = await waitFor(() => findPage((u) => u.includes('toolbar.html')), {
-    timeoutMs: 60_000,
-    label: '工具栏页面出现'
-  })
-  await toolbarPage.waitForLoadState('domcontentloaded')
-  const hasButtons = await toolbarPage.evaluate(() => {
-    return Boolean(
-      window.api &&
-        document.getElementById('btnSessions') &&
-        document.getElementById('btnPlugins') &&
-        document.getElementById('btnSettings')
-    )
-  })
-  assertOk(hasButtons, 'h1 工具栏含 会话/插件/设置 按钮且 api 就绪')
-  const openRes = await toolbarPage.evaluate(() => window.api.openSessionsWindow())
-  assertOk(openRes?.ok === true, 'h2 工具栏按钮可打开会话中心', JSON.stringify(openRes))
+  /* ════════ Step h：无覆盖栏的主窗口 + 工作区文件树 API ════════ */
+  log('— Step h：官方 Web 全屏 + 工作区文件树 —')
+  const hasToolbarTarget = context.pages().some((page) => page.url().includes('toolbar.html'))
+  assertOk(!hasToolbarTarget, 'h1 主窗口未加载自定义工具栏页面')
+  const openRes = await splash.evaluate(() => window.api.openSessionsWindow())
+  assertOk(openRes?.ok === true, 'h2 原生 IPC 可打开会话中心', JSON.stringify(openRes))
 
   const dirRes = await splash.evaluate(() => window.api.listDirectory('.'))
   assertOk(

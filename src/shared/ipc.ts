@@ -55,8 +55,6 @@ export const IpcChannels = {
   ShellOpenPlugins: 'shell:open-plugins',
   /** 壳：打开会话中心窗口 */
   ShellOpenSessions: 'shell:open-sessions',
-  /** 壳：打开设置窗口 */
-  ShellOpenSettings: 'shell:open-settings',
 
   /** 工作区：读取目录条目（文件树懒加载） */
   WorkspaceListDir: 'workspace:list-dir',
@@ -482,7 +480,6 @@ export interface DeepseekApi {
   /* 壳窗口（主界面工具栏） */
   openPluginsWindow(): Promise<{ ok: boolean }>
   openSessionsWindow(): Promise<{ ok: boolean }>
-  openSettingsWindow(): Promise<{ ok: boolean }>
 
   /* 工作区文件树 */
   listDirectory(path: string): Promise<WorkspaceListDirResult>
