@@ -4,7 +4,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse } from 'yaml'
-import { getApiKeyStatus, getDefaultModel, saveApiKey, saveDefaultModel } from '../src/main/config'
+import {
+  getApiKeyStatus,
+  getDefaultModel,
+  saveApiKey,
+  saveDefaultModel,
+  migrateLegacyPreferences
+} from '../src/main/config'
+import type { Preferences } from '../src/shared/ipc'
 
 /**
  * 凭据文件读-改-写行为验证（对应评审修复：saveApiKey 单键合并）：
@@ -158,3 +165,21 @@ test('saveDefaultModel：保留 settings.yaml 未知字段与注释', async () =
 function existsFileSync(p: string): boolean {
   return statSync(p, { throwIfNoEntry: false }) !== undefined
 }
+
+test('migrateLegacyPreferences：旧占位仓库值迁移为真实仓库', () => {
+  const legacy = {
+    updateCheckEnabled: true,
+    updateSnoozeUntil: null,
+    lastCheck: null,
+    lastKnownGoodDsh: null,
+    bootFailCount: 0,
+    updateRepo: 'owner/deepseek-harness-desktop',
+    accent: 'blue'
+  } satisfies Preferences
+  const migrated = migrateLegacyPreferences(legacy)
+  assert.equal(migrated.updateRepo, 'HongMing-Huang/deepseek-harness-desktop')
+  assert.equal(migrated.accent, 'blue', '其余字段保持不变')
+
+  const normal = { ...legacy, updateRepo: 'someone-else/deepseek-harness-desktop' }
+  assert.equal(migrateLegacyPreferences(normal).updateRepo, 'someone-else/deepseek-harness-desktop', '非占位值不动')
+})

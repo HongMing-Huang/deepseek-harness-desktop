@@ -172,12 +172,20 @@ export async function saveDefaultModel(model: string): Promise<{ ok: boolean; me
 
 /* ── 应用偏好 ── */
 
+/** 偏好迁移（纯函数）：早期版本持久化的占位仓库值 → 当前真实仓库 */
+export function migrateLegacyPreferences(prefs: Preferences): Preferences {
+  if (prefs.updateRepo === 'owner/deepseek-harness-desktop') {
+    return { ...prefs, updateRepo: DEFAULT_UPDATE_REPO }
+  }
+  return prefs
+}
+
 /** 读取偏好（与默认值合并；文件不存在/损坏返回默认值） */
 export async function getPreferences(): Promise<Preferences> {
   try {
     const raw = await readFile(preferencesPath(), 'utf-8')
     const parsed = JSON.parse(raw) as Partial<Preferences>
-    return { ...DEFAULT_PREFERENCES, ...parsed }
+    return migrateLegacyPreferences({ ...DEFAULT_PREFERENCES, ...parsed })
   } catch {
     return { ...DEFAULT_PREFERENCES }
   }
