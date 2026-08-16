@@ -108,6 +108,24 @@
       return
     }
 
+    // 全部会话卡片：跨工作区查看（含无工作区归属的子代理会话）
+    var allCard = el('div', 'card card--all')
+    allCard.setAttribute('role', 'listitem')
+    var allTop = el('div', 'card__top')
+    allTop.appendChild(el('div', 'card__icon', '≡'))
+    var allTitles = el('div', 'card__titles')
+    allTitles.appendChild(el('div', 'card__name', '全部会话'))
+    allTitles.appendChild(el('div', 'card__path', '跨工作区查看所有会话（含子代理）'))
+    allTop.appendChild(allTitles)
+    allCard.appendChild(allTop)
+    var allMeta = el('div', 'card__meta')
+    allMeta.appendChild(el('span', null, '浏览 / 搜索 / 恢复 / 导出'))
+    allCard.appendChild(allMeta)
+    allCard.addEventListener('click', function () {
+      void drillWorkspace({ workspaceId: null, title: '全部会话', path: '', sessionCount: 0 })
+    })
+    els.workspaceGrid.appendChild(allCard)
+
     workspaces.forEach(function (ws) {
       var card = el('div', 'card')
       card.setAttribute('role', 'listitem')
@@ -189,16 +207,16 @@
 
   function drillWorkspace(ws) {
     currentWorkspace = ws
-    setView(
-      'workspace',
-      ws.title || basenameOf(ws.path),
-      (ws.path || '') + ' · ' + ws.sessionCount + ' 个会话'
-    )
+    var sub =
+      ws.workspaceId === null
+        ? '跨工作区全部会话（含子代理）'
+        : (ws.path || '') + ' · ' + ws.sessionCount + ' 个会话'
+    setView('workspace', ws.title || basenameOf(ws.path), sub)
     els.searchInput.value = ''
     els.sessionList.replaceChildren(el('div', 'empty', '加载中…'))
     if (!api) return
     api
-      .listSessions(ws.workspaceId)
+      .listSessions(ws.workspaceId === null ? undefined : ws.workspaceId)
       .then(function (result) {
         showSourceBadge(result && result.source)
         renderSessions((result && result.items) || [])

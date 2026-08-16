@@ -321,6 +321,9 @@ export function setupAppMenu(): void {
           submenu: [
             { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => openSettingsWindow() },
             { type: 'separator' },
+            { label: '会话中心…', click: () => openSessionsWindow() },
+            { label: '插件…', click: () => openPluginsWindow() },
+            { type: 'separator' },
             { role: 'hide', label: '隐藏 Deepseek' },
             { role: 'unhide', label: '显示全部' },
             { type: 'separator' },

@@ -467,3 +467,15 @@ body {
   background: rgba(139, 145, 163, 0.4);
   background-clip: content-box;
 }
+
+/* ── 全部会话卡片（置顶强调） ── */
+
+.card--all {
+  border-color: rgba(77, 107, 254, 0.45);
+  background: linear-gradient(135deg, rgba(77, 107, 254, 0.12), rgba(16, 19, 26, 0.6));
+}
+
+.card--all .card__icon {
+  background: rgba(77, 107, 254, 0.28);
+  border-color: rgba(77, 107, 254, 0.55);
+}
