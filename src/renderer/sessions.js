@@ -233,7 +233,8 @@
       var metaParts = []
       if (typeof s.turns === 'number') metaParts.push(s.turns + ' 轮')
       if (typeof s.steps === 'number') metaParts.push(s.steps + ' 步')
-      metaParts.push(relativeTime(s.updatedAt))
+      var relTime = relativeTime(s.updatedAt)
+      if (relTime) metaParts.push(relTime)
       main.appendChild(el('div', 'item__desc', metaParts.join(' · ')))
       item.appendChild(main)
 
@@ -316,7 +317,9 @@
       var main = el('div', 'item__main')
       var nameRow = el('div', 'item__name-row')
       nameRow.appendChild(el('span', 'item__name', s.title || '未命名会话'))
-      nameRow.appendChild(el('span', 'item__tag badge badge--muted', s.updatedAt ? relativeTime(s.updatedAt) : ''))
+      if (s.updatedAt) {
+        nameRow.appendChild(el('span', 'item__tag badge badge--muted', relativeTime(s.updatedAt)))
+      }
       main.appendChild(nameRow)
       if (s.cwd) {
         main.appendChild(el('div', 'item__desc', s.cwd))

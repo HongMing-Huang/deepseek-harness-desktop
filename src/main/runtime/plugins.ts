@@ -146,6 +146,11 @@ function clearOperation(): void {
   activeChild = null
 }
 
+/** 包名白名单（scoped 与普通名；拒绝参数注入形状：前导 -、空白、控制字符等） */
+export function isValidPackageName(name: string): boolean {
+  return /^[@A-Za-z0-9_./-]+$/.test(name) && !name.startsWith('-') && !name.includes('..')
+}
+
 /** 解析 version：空/未提供时安装 latest（裸名），否则 name@version 精确 pin */
 function specFor(name: string, version?: string): string {
   const v = (version ?? '').trim()
@@ -259,6 +264,9 @@ export async function installPlugin(
   version?: string,
   spec?: string
 ): Promise<{ ok: boolean; message?: string }> {
+  if (!isValidPackageName(name)) {
+    return { ok: false, message: `插件名无效：${name}` }
+  }
   let target: string
   try {
     target = resolveInstallSpec(name, version, spec)
@@ -334,6 +342,9 @@ export async function installPlugin(
 
 /** 执行一次插件卸载：流程与安装对称 */
 export async function removePlugin(name: string): Promise<{ ok: boolean; message?: string }> {
+  if (!isValidPackageName(name)) {
+    return { ok: false, message: `插件名无效：${name}` }
+  }
   const op = 'plugin-remove' as const
   try {
     ensureIdle('remove', name)

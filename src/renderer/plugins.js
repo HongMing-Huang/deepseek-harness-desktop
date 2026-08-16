@@ -417,7 +417,9 @@
         if (!result.ok) {
           showProgress('error', result.message || '安装失败')
         }
-        void refreshLists()
+        void refreshLists().then(function () {
+          renderMarket(marketItems) // 重渲染市场列表，更新「已安装」标记
+        })
       })
       .catch(function () {
         setAllButtonsDisabled(false)
@@ -448,6 +450,12 @@
 
   function doInstall(plugin) {
     if (!api || restartPending) return
+    // GitHub 直装条目必须带 installSpec（git+https…@pin）：缺失时明确报错，
+    // 绝不静默退化成 npm 裸名安装装错包
+    if (plugin.source === 'github' && !plugin.installSpec) {
+      showProgress('error', plugin.name + ' 的直装规格缺失（目录数据异常），请刷新后重试')
+      return
+    }
     setAllButtonsDisabled(true)
     // 进度区就位（等待 OpProgress 事件填充）
     showProgress('start', '正在提交安装请求…')

@@ -7,7 +7,8 @@ import {
   resolveInstallSpec,
   ensureAllowBuilds,
   specRepoName,
-  extractIgnoredBuildNames
+  extractIgnoredBuildNames,
+  isValidPackageName
 } from '../src/main/runtime/plugins'
 
 /**
@@ -163,4 +164,17 @@ test('extractIgnoredBuildNames：从 pnpm 拦截输出提取精确包名', () =>
     ['dsh-auto-review', '@scope/other']
   )
   assert.deepEqual(extractIgnoredBuildNames('无关输出'), [])
+})
+
+test('isValidPackageName：白名单校验与参数注入形状拒绝', () => {
+  assert.equal(isValidPackageName('dsh-xxx'), true)
+  assert.equal(isValidPackageName('@scope/dsh-xxx'), true)
+  assert.equal(isValidPackageName('dsh.mnemon'), true)
+  assert.equal(isValidPackageName('--profile'), false, '前导连字符拒绝')
+  assert.equal(isValidPackageName('-dsh'), false)
+  assert.equal(isValidPackageName('a b'), false, '空白拒绝')
+  assert.equal(isValidPackageName('a\tb'), false)
+  assert.equal(isValidPackageName('../x'), false, '路径穿越拒绝')
+  assert.equal(isValidPackageName('dsh/../x'), false)
+  assert.equal(isValidPackageName(''), false)
 })
