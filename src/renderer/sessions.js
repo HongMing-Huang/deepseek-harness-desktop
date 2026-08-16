@@ -1,3 +1,4 @@
+import { applyAccent } from './theme.js'
 // Deepseek 会话中心窗口逻辑：经 window.api（preload 白名单）读写官方 dsh 数据。
 // 纯原生 JS，无框架依赖。三视图：工作区卡片首页 / 工作区会话列表 / 全局搜索。
 // 全部数据只读；恢复 = 打开官方 Web 界面续接；导出 = 官方 zip / 本地 Markdown / JSONL。
@@ -26,6 +27,11 @@
   }
 
   var api = window.api
+  if (api) {
+    api.getConfig().then(function (c) {
+      applyAccent(c.preferences.accent)
+    }).catch(function () {})
+  }
   var workspaces = [] // 工作区缓存
   var currentWorkspace = null // 钻入的工作区
   var view = 'home' // home | workspace | search

@@ -26,7 +26,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastCheck: null,
   lastKnownGoodDsh: null,
   bootFailCount: 0,
-  updateRepo: DEFAULT_UPDATE_REPO
+  updateRepo: DEFAULT_UPDATE_REPO,
+  accent: 'blue'
 }
 
 function credentialsPath(): string {

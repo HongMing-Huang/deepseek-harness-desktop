@@ -1,22 +1,6 @@
 /* ── Deepseek 设置窗口 ──────────────────────────────────────────
    深色 · 紧凑 · 表单优先。延续 splash 的设计变量与品牌蓝强调色。 */
 
-:root {
-  --bg: #0b0d12;
-  --bg-raised: #10131a;
-  --ink: #e8eaf0;
-  --ink-dim: #8b91a3;
-  --ink-faint: #4c5264;
-  --accent: #4d6bfe;
-  --accent-soft: rgba(77, 107, 254, 0.35);
-  --error: #f0564f;
-  --ok: #3ddc97;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  --sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
-    'Helvetica Neue', sans-serif;
-}
-
 * {
   margin: 0;
   padding: 0;
@@ -264,3 +248,35 @@ body {
   color: var(--ink-faint);
   text-align: center;
 }
+
+/* ── 外观：强调色色板 ── */
+
+.accent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  outline-offset: 2px;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.swatch--active {
+  border-color: var(--ink);
+}
+
+.swatch--blue { background: #4d6bfe; }
+.swatch--green { background: #22c55e; }
+.swatch--violet { background: #8b5cf6; }
+.swatch--amber { background: #f59e0b; }

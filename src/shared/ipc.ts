@@ -196,6 +196,8 @@ export interface Preferences {
   bootFailCount: number
   /** 应用壳更新检查的 GitHub 仓库（owner/repo，占位值时跳过检查） */
   updateRepo: string
+  /** 自有界面强调色主题（仅影响 Deepseek 自有页面，官方 web 不变） */
+  accent: 'blue' | 'green' | 'violet' | 'amber'
 }
 
 export interface ConfigState {

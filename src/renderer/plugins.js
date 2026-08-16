@@ -1,3 +1,4 @@
+import { applyAccent } from './theme.js'
 // Deepseek 插件管理窗口逻辑：经 window.api（preload 白名单）读写插件状态。
 // 纯原生 JS，无框架依赖。三区：已安装 / 目录搜索 / OpProgress 进度。
 ;(function () {
@@ -25,6 +26,11 @@
   }
 
   var api = window.api
+  if (api) {
+    api.getConfig().then(function (c) {
+      applyAccent(c.preferences.accent)
+    }).catch(function () {})
+  }
   var installed = [] // 已装插件名集合（目录内标记状态用）
   var installedFull = [] // 已装插件完整条目（健康检查后重渲染用）
   var catalog = []

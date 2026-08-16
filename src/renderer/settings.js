@@ -1,3 +1,4 @@
+import { applyAccent } from './theme.js'
 // Deepseek 设置窗口逻辑：经 window.api（preload 白名单）读写配置。
 // 纯原生 JS，无框架依赖。
 ;(function () {
@@ -15,6 +16,8 @@
     updateRepoInput: document.getElementById('updateRepoInput'),
     updateRepoSave: document.getElementById('updateRepoSave'),
     updateRepoFeedback: document.getElementById('updateRepoFeedback'),
+    accentRow: document.getElementById('accentRow'),
+    accentFeedback: document.getElementById('accentFeedback'),
     appVersion: document.getElementById('appVersion'),
     dshVersion: document.getElementById('dshVersion'),
     checkNowBtn: document.getElementById('checkNowBtn'),
@@ -42,6 +45,13 @@
 
   function applyState(state) {
     if (!state) return
+
+    // 外观主题：选中对应色板并应用到本窗口
+    var accent = state.preferences.accent || 'blue'
+    applyAccent(accent)
+    Array.prototype.forEach.call(els.accentRow.querySelectorAll('.swatch'), function (sw) {
+      sw.classList.toggle('swatch--active', sw.dataset.accent === accent)
+    })
 
     // API 密钥状态（仅掩码）
     if (state.apiKey.configured) {
@@ -239,6 +249,30 @@
   /* ── 启动 ── */
 
   if (window.api) {
+    window.api.getConfig().then(function (c) {
+      applyAccent(c.preferences.accent)
+    }).catch(function () {})
+    Array.prototype.forEach.call(els.accentRow.querySelectorAll('.swatch'), function (sw) {
+      sw.addEventListener('click', function () {
+        var accent = sw.dataset.accent
+        setBusy(sw, true)
+        window.api
+          .savePreferences({ accent: accent })
+          .then(function () {
+            applyAccent(accent)
+            Array.prototype.forEach.call(els.accentRow.querySelectorAll('.swatch'), function (s2) {
+              s2.classList.toggle('swatch--active', s2.dataset.accent === accent)
+            })
+            setFeedback(els.accentFeedback, '外观已更新，全部自有界面即时生效', 'ok')
+          })
+          .catch(function () {
+            setFeedback(els.accentFeedback, '保存失败', 'error')
+          })
+          .finally(function () {
+            setBusy(sw, false)
+          })
+      })
+    })
     bindEvents(window.api)
     load()
   } else {

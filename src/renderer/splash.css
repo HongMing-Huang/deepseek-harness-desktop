@@ -2,21 +2,6 @@
    深色 · 克制 · 专业。品牌蓝（DeepSeek 蓝）作为唯一强调色，
    大面积近黑底色 + 细网格 + 微噪点营造纵深，避免平涂背景。 */
 
-:root {
-  --bg: #0b0d12;
-  --bg-raised: #10131a;
-  --ink: #e8eaf0;
-  --ink-dim: #8b91a3;
-  --ink-faint: #4c5264;
-  --accent: #4d6bfe;
-  --accent-soft: rgba(77, 107, 254, 0.35);
-  --error: #f0564f;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  --sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
-    'Helvetica Neue', sans-serif;
-}
-
 * {
   margin: 0;
   padding: 0;

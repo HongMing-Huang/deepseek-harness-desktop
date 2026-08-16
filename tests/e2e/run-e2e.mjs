@@ -377,6 +377,12 @@ try {
   const alive = await splash.evaluate(() => 1 + 1)
   assertOk(alive === 2, 'e3 主窗口（splash target）仍存活可交互')
 
+  /* 外观主题偏好：保存 → 读取 → 恢复（仅自有界面，官方 web 不变） */
+  const accentSaved = await splash.evaluate(() => window.api.savePreferences({ accent: 'violet' }))
+  assertOk(accentSaved?.accent === 'violet', 'c9 强调色偏好保存生效', JSON.stringify(accentSaved))
+  const accentRestored = await splash.evaluate(() => window.api.savePreferences({ accent: 'blue' }))
+  assertOk(accentRestored?.accent === 'blue', 'c10 强调色偏好可恢复默认', JSON.stringify(accentRestored))
+
   /* ════════ Step f：会话中心 + 插件健康（2.0） ════════ */
   log('— Step f：会话中心 + 插件健康 —')
   const workspacesRes = await splash.evaluate(() => window.api.listWorkspaces())

@@ -1,18 +1,5 @@
 /* ── 主界面工具栏（主窗口顶部按钮栏） ── */
 
-:root {
-  --bg: #0b0d12;
-  --line: rgba(139, 145, 163, 0.16);
-  --ink: #e8eaf0;
-  --ink-dim: #8b91a3;
-  --accent: #4d6bfe;
-  --ok: #3ddc97;
-  --warn: #d9a441;
-  --err: #f0564f;
-  --sans:
-    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
-}
-
 * {
   margin: 0;
   padding: 0;

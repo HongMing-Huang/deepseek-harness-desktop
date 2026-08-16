@@ -7,6 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
     />
+    <link rel="stylesheet" href="./theme.css" />
     <link rel="stylesheet" href="./settings.css" />
   </head>
   <body>
@@ -48,6 +49,18 @@
           <button class="btn" id="modelSave" type="button">保存</button>
         </div>
         <p class="feedback" id="modelFeedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">外观</h2>
+        <p class="card__desc">强调色主题，仅作用于 Deepseek 自有界面（设置 / 插件 / 会话 / 工具栏）；官方 Web 界面保持不变。</p>
+        <div class="accent-row" id="accentRow">
+          <button class="swatch swatch--blue" data-accent="blue" type="button" title="品牌蓝"></button>
+          <button class="swatch swatch--green" data-accent="green" type="button" title="松石绿"></button>
+          <button class="swatch swatch--violet" data-accent="violet" type="button" title="星云紫"></button>
+          <button class="swatch swatch--amber" data-accent="amber" type="button" title="琥珀金"></button>
+        </div>
+        <p class="feedback" id="accentFeedback" role="status" aria-live="polite"></p>
       </section>
 
       <section class="card">
