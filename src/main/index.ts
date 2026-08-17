@@ -20,8 +20,6 @@ import {
 import * as config from './config'
 import {
   createMainWindow,
-  openPluginsWindow,
-  openSessionsWindow,
   setupAppMenu,
   showDshWebView,
   showRuntimeErrorOverlay
@@ -30,8 +28,8 @@ import { logger } from './logger'
 import { TrayController } from './tray'
 import * as plugins from './runtime/plugins'
 import * as dshfind from './runtime/dshfind'
-import * as sessions from './sessions'
-import * as workspaceFiles from './workspace-files'
+import { OfficialWebBridge } from './web-bridge'
+import { ensureOfficialWebExtension, supportsOfficialWebExtension } from './official-web-extension'
 import type {
   ConfigState,
   DiagnosticsResult,
@@ -45,6 +43,11 @@ let mainWindow: BrowserWindow | null = null
 const supervisor = new ProcessSupervisor()
 let updater: RuntimeUpdater | null = null
 let trayController: TrayController | null = null
+const officialWebBridge = new OfficialWebBridge({
+  searchMarket: (query) => dshfind.searchMarket(query),
+  listPlugins: () => plugins.listInstalledPlugins(),
+  installPlugin: (name, version, spec) => plugins.installPlugin(name, version, spec)
+})
 let latestStatus: RuntimeStatus = { phase: 'starting', message: '正在初始化…' }
 /** 退出流程已发起（before-quit 二次进入直接 app.exit，防死循环） */
 let quitRequested = false
@@ -89,14 +92,6 @@ function showMainWindowFromTray(): void {
   void bootstrapRuntime()
 }
 
-/** 会话中心「恢复」入口：窗口就绪 + 运行时保证在跑（可重复调用，幂等） */
-function ensureMainWindowAndRuntime(): void {
-  showMainWindowFromTray()
-  if (!supervisor.running) {
-    void bootstrapRuntime()
-  }
-}
-
 function setStatus(status: RuntimeStatus): void {
   latestStatus = status
   broadcastStatus(status)
@@ -117,7 +112,8 @@ function attachSupervisorListeners(): void {
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       // 就绪后切换 dsh web 全幅视图（无 preload，强隔离）
-      showDshWebView(mainWindow, url)
+      officialWebBridge.setDshUrl(url)
+      showDshWebView(mainWindow, officialWebBridge.attach(url))
     }
   })
 
@@ -180,7 +176,8 @@ async function bootstrapRuntime(): Promise<void> {
     logger.info(`复用已就绪的 dsh web：${url}`)
     setStatus({ phase: 'ready', port: supervisor.port ?? undefined, url, message: 'dsh web 已就绪' })
     if (mainWindow && !mainWindow.isDestroyed()) {
-      showDshWebView(mainWindow, url)
+      officialWebBridge.setDshUrl(url)
+      showDshWebView(mainWindow, officialWebBridge.attach(url))
     }
     return
   }
@@ -319,30 +316,12 @@ function buildIpcContext(): IpcContext {
       return result
     },
 
-    savePreferences: (patch: Partial<Preferences>) => config.savePreferencesMerge(patch),
-
-    /* 插件：runtime/plugins.ts 直通（安装/卸载内含 OpProgress 广播与并发锁）；
+    /* 插件市场：安装内含 OpProgress 广播与并发锁；
        结果同步给托盘发系统通知（并发锁拒绝除外） */
     listPlugins: () => plugins.listInstalledPlugins().then((items) => ({ plugins: items })),
-    getPluginCatalog: () => plugins.getPluginCatalog().then((catalog) => ({ catalog })),
     installPlugin: async (name: string, version?: string, spec?: string) => {
       const result = await plugins.installPlugin(name, version, spec)
       trayController?.notifyPluginResult('install', name, result.ok, result.message)
-      return result
-    },
-    removePlugin: async (name: string) => {
-      const result = await plugins.removePlugin(name)
-      trayController?.notifyPluginResult('remove', name, result.ok, result.message)
-      return result
-    },
-    checkPluginsHealth: () => plugins.checkPluginsHealth(),
-    updateAllPlugins: async () => {
-      const result = await plugins.updateAllPlugins()
-      if (result.ok) {
-        trayController?.notifyPluginResult('update-all', '全部插件', true, result.message)
-      } else if (!result.message?.includes('已有插件操作进行中')) {
-        trayController?.notifyPluginResult('update-all', '全部插件', false, result.message)
-      }
       return result
     },
     searchMarket: (query: string) => dshfind.searchMarket(query),
@@ -359,26 +338,6 @@ function buildIpcContext(): IpcContext {
         ? updater.applyUpdate(version)
         : Promise.resolve({ ok: false, message: '更新服务尚未初始化' }),
 
-    /* 会话中心：sessions.ts 直通（只读官方数据；恢复经主窗口官方 Web 续接） */
-    listWorkspaces: () => sessions.listWorkspaces(),
-    listSessions: (workspaceId?: string) => sessions.listSessions(workspaceId),
-    searchSessions: (query: string) => sessions.searchSessions(query),
-    exportSession: (sessionId, format, includeDescendants) =>
-      sessions.exportSession(sessionId, format, includeDescendants ?? false),
-    resumeSession: (sessionId: string) => Promise.resolve(sessions.resumeSession(sessionId)),
-    openWorkspaceFolder: (path: string) => sessions.openWorkspaceFolder(path),
-
-    /* 壳窗口（原生菜单入口）与工作区文件树 */
-    openPluginsWindow: () => {
-      openPluginsWindow()
-      return { ok: true }
-    },
-    openSessionsWindow: () => {
-      openSessionsWindow()
-      return { ok: true }
-    },
-    listDirectory: (path: string) => workspaceFiles.listDirectory(path),
-    workspaceGitStatus: (path: string) => workspaceFiles.workspaceGitStatus(path)
   }
 }
 
@@ -402,14 +361,16 @@ app.whenReady().then(async () => {
       logger.warn(`启动清理异常：${err instanceof Error ? err.message : String(err)}`)
     )
 
+  const runtimeVersion = bundledDshVersion()
+  if (supportsOfficialWebExtension(runtimeVersion)) {
+    if (!ensureOfficialWebExtension()) logger.warn('官方 Web 扩展资源缺失，已回退为纯官方页面')
+  } else {
+    logger.warn(`dsh ${runtimeVersion ?? 'unknown'} 与内置 Web 扩展不兼容，已回退为纯官方页面`)
+  }
+  await officialWebBridge.start()
+
   // 更新器：晚于清理初始化，保证调度开始前目录已是受控状态
   updater = new RuntimeUpdater(supervisor)
-
-  // 会话中心依赖注入：web 状态查询（官方 RPC 可用性）+ 恢复入口
-  sessions.initSessions({
-    getWebStatus: () => ({ phase: latestStatus.phase, port: latestStatus.port }),
-    ensureMainWindow: ensureMainWindowAndRuntime
-  })
 
   registerIpcHandlers(buildIpcContext())
   setupAppMenu()
@@ -417,7 +378,7 @@ app.whenReady().then(async () => {
   void bootstrapRuntime()
   updater.start()
 
-  // 托盘常驻：点击显示/创建主窗口；菜单含插件市场/设置/检查更新/退出；
+  // 托盘常驻：点击显示/创建主窗口；菜单只保留原生窗口控制与退出；
   // 订阅 supervisor 与更新器状态（tooltip 附加运行状态，异常/新版本发原生通知）
   trayController = new TrayController({
     supervisor,
@@ -426,13 +387,6 @@ app.whenReady().then(async () => {
       updater ? updater.onStatus(listener) : () => {}
   })
   trayController.start()
-
-  // E2E 钩子：仅测试环境变量触发（打包态忽略），自动打开指定自有窗口供 CDP 截图/断言
-  if (!app.isPackaged && process.env.DSH_E2E_WINDOW === 'sessions') {
-    openSessionsWindow()
-  } else if (!app.isPackaged && process.env.DSH_E2E_WINDOW === 'plugins') {
-    openPluginsWindow()
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -455,6 +409,7 @@ async function shutdown(): Promise<void> {
   // 托盘先释放（事件订阅与系统资源），避免退出过程中再弹通知/更新 tooltip
   trayController?.dispose()
   trayController = null
+  await officialWebBridge.stop()
   // 插件操作进行中：先中止 pnpm 子进程，避免退出后残留
   if (plugins.hasActivePluginOperation()) {
     plugins.abortActivePluginOperation()

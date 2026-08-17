@@ -5,14 +5,13 @@ import type { RuntimePhase, UpdaterStatusPayload } from '../shared/ipc'
 import { classifyStartupError } from './runtime/error-classifier'
 import type { ProcessSupervisor } from './runtime/process-supervisor'
 import { createNotificationGate, trayStatusText } from './notify-gate'
-import { openPluginsWindow, openSessionsWindow } from './windows'
 import { logger } from './logger'
 
 /**
  * 托盘常驻 + 原生通知：
  * - 图标：whale-tray.png（黑色鲸鱼剪影透明底）；macOS 缩放 16/32 并
  *   setTemplateImage（自动适配菜单栏明暗），Linux/Windows 用普通 32px；
- * - 菜单：显示主窗口 / 会话中心 / 插件市场 / 退出；
+ * - 菜单：显示主窗口 / 退出；
  * - 点击托盘：主窗口不存在则创建（并引导运行时），存在则显示+聚焦；
  * - 状态感知：订阅 supervisor 的 progress/error/ready/exit 与更新器状态，
  *   tooltip 附加「启动中/运行中/出错/更新中」；
@@ -82,7 +81,7 @@ export class TrayController {
       key: `plugin-${action}:${name}`,
       title: ok ? `插件已${verb}` : `插件${verb}失败`,
       body: ok ? `${name}（重启 dsh web 后生效）` : `${name}：${truncate(message ?? '未知原因', NOTIFY_BODY_MAX)}`,
-      focus: 'plugins'
+      focus: 'main'
     })
   }
 
@@ -145,9 +144,6 @@ export class TrayController {
     return Menu.buildFromTemplate([
       { label: '显示主窗口', click: () => this.deps.showMainWindow() },
       { type: 'separator' },
-      { label: '会话中心', click: () => openSessionsWindow() },
-      { label: '插件市场', click: () => openPluginsWindow() },
-      { type: 'separator' },
       { label: '退出', click: () => app.quit() }
     ])
   }
@@ -157,7 +153,7 @@ export class TrayController {
     key: string
     title: string
     body: string
-    focus: 'main' | 'plugins'
+    focus: 'main'
   }): void {
     if (!Notification.isSupported()) {
       return
@@ -167,11 +163,7 @@ export class TrayController {
     }
     const notification = new Notification({ title: input.title, body: input.body })
     notification.on('click', () => {
-      if (input.focus === 'plugins') {
-        openPluginsWindow()
-      } else {
-        this.deps.showMainWindow()
-      }
+      this.deps.showMainWindow()
     })
     notification.show()
   }

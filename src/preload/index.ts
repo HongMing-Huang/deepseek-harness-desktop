@@ -3,7 +3,6 @@ import {
   IpcChannels,
   type DeepseekApi,
   type OpProgress,
-  type Preferences,
   type RuntimeStatus,
   type UpdaterStatusPayload
 } from '../shared/ipc'
@@ -38,41 +37,17 @@ const api: DeepseekApi = {
   checkUpdater: () => ipcRenderer.invoke(IpcChannels.UpdaterCheckNow),
   applyUpdater: (version?: string) => ipcRenderer.invoke(IpcChannels.UpdaterApply, version),
 
-  /* 插件：handler 由插件管理阶段实现 */
+  /* 插件市场 */
   listPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsList),
-  getPluginCatalog: () => ipcRenderer.invoke(IpcChannels.PluginsCatalog),
   installPlugin: (name: string, version?: string, spec?: string) =>
     ipcRenderer.invoke(IpcChannels.PluginsInstall, name, version, spec),
-  removePlugin: (name: string) => ipcRenderer.invoke(IpcChannels.PluginsRemove, name),
-  checkPluginsHealth: () => ipcRenderer.invoke(IpcChannels.PluginsHealth),
-  updateAllPlugins: () => ipcRenderer.invoke(IpcChannels.PluginsUpdateAll),
   searchMarket: (query: string) => ipcRenderer.invoke(IpcChannels.PluginsMarketSearch, query),
   refreshMarket: () => ipcRenderer.invoke(IpcChannels.PluginsMarketRefresh),
-
-  /* 会话中心 */
-  listWorkspaces: () => ipcRenderer.invoke(IpcChannels.SessionsWorkspaces),
-  listSessions: (workspaceId?: string) =>
-    ipcRenderer.invoke(IpcChannels.SessionsList, workspaceId),
-  searchSessions: (query: string) => ipcRenderer.invoke(IpcChannels.SessionsSearch, query),
-  exportSession: (sessionId: string, format: import('../shared/ipc').SessionExportFormat, includeDescendants?: boolean) =>
-    ipcRenderer.invoke(IpcChannels.SessionsExport, sessionId, format, includeDescendants),
-  resumeSession: (sessionId: string) => ipcRenderer.invoke(IpcChannels.SessionsResume, sessionId),
-  openWorkspaceFolder: (path: string) => ipcRenderer.invoke(IpcChannels.SessionsOpenFolder, path),
-
-  /* 壳窗口（原生菜单入口） */
-  openPluginsWindow: () => ipcRenderer.invoke(IpcChannels.ShellOpenPlugins),
-  openSessionsWindow: () => ipcRenderer.invoke(IpcChannels.ShellOpenSessions),
-
-  /* 工作区文件树 */
-  listDirectory: (path: string) => ipcRenderer.invoke(IpcChannels.WorkspaceListDir, path),
-  workspaceGitStatus: (path: string) => ipcRenderer.invoke(IpcChannels.WorkspaceGitStatus, path),
 
   /* 配置 */
   getConfig: () => ipcRenderer.invoke(IpcChannels.ConfigGet),
   saveApiKey: (key: string) => ipcRenderer.invoke(IpcChannels.ConfigSaveApiKey, key),
   saveModel: (model: string) => ipcRenderer.invoke(IpcChannels.ConfigSaveModel, model),
-  savePreferences: (patch: Partial<Preferences>) =>
-    ipcRenderer.invoke(IpcChannels.ConfigSavePreferences, patch),
 
   /* 事件订阅 */
   onStatus: (listener: (status: RuntimeStatus) => void) =>

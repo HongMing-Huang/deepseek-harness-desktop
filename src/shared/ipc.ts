@@ -21,45 +21,14 @@ export const IpcChannels = {
   /** 更新：立即安装指定（或已发现的最新）dsh 版本 */
   UpdaterApply: 'updater:apply',
 
-  /** 插件：列出已安装插件（handler 由插件管理阶段实现） */
+  /** 插件：列出已安装插件 */
   PluginsList: 'plugins:list',
-  /** 插件：可用插件目录（handler 由插件管理阶段实现） */
-  PluginsCatalog: 'plugins:catalog',
-  /** 插件：安装（handler 由插件管理阶段实现） */
+  /** 插件：安装 */
   PluginsInstall: 'plugins:install',
-  /** 插件：卸载（handler 由插件管理阶段实现） */
-  PluginsRemove: 'plugins:remove',
-  /** 插件：健康检查（已装包完整性 / 版本可更新） */
-  PluginsHealth: 'plugins:health',
-  /** 插件：一键全量更新（pnpm update，逐个依赖刷新到兼容最新） */
-  PluginsUpdateAll: 'plugins:update-all',
   /** 插件：dshfind 在线市场搜索 */
   PluginsMarketSearch: 'plugins:market-search',
   /** 插件：dshfind 在线市场强制刷新 */
   PluginsMarketRefresh: 'plugins:market-refresh',
-
-  /** 会话：工作区列表（Trae Workspace 风格项目卡片） */
-  SessionsWorkspaces: 'sessions:workspaces',
-  /** 会话：指定（或全部）工作区的会话列表 */
-  SessionsList: 'sessions:list',
-  /** 会话：全文搜索（dsh web 就绪时走官方 session.search，否则本地元数据兜底） */
-  SessionsSearch: 'sessions:search',
-  /** 会话：导出（官方 zip 存档 / Markdown / JSONL） */
-  SessionsExport: 'sessions:export',
-  /** 会话：恢复（打开主窗口官方 Web 界面继续） */
-  SessionsResume: 'sessions:resume',
-  /** 会话：在系统文件管理器中打开工作区目录 */
-  SessionsOpenFolder: 'sessions:open-folder',
-
-  /** 壳：打开插件窗口（主界面工具栏按钮） */
-  ShellOpenPlugins: 'shell:open-plugins',
-  /** 壳：打开会话中心窗口 */
-  ShellOpenSessions: 'shell:open-sessions',
-
-  /** 工作区：读取目录条目（文件树懒加载） */
-  WorkspaceListDir: 'workspace:list-dir',
-  /** 工作区：git 变更状态（porcelain 解析） */
-  WorkspaceGitStatus: 'workspace:git-status',
 
   /** 配置：读取密钥状态 / 默认模型 / 偏好 / 版本信息 */
   ConfigGet: 'config:get',
@@ -67,8 +36,6 @@ export const IpcChannels = {
   ConfigSaveApiKey: 'config:save-api-key',
   /** 配置：保存默认模型（~/.dsh/settings.yaml 的 agent-default-model 段） */
   ConfigSaveModel: 'config:save-model',
-  /** 配置：合并保存应用偏好（userData/preferences.json） */
-  ConfigSavePreferences: 'config:save-preferences',
 
   /* ── main → renderer（event）── */
   /** 运行时状态推送 */
@@ -194,8 +161,6 @@ export interface Preferences {
   bootFailCount: number
   /** 应用壳更新检查的 GitHub 仓库（owner/repo，占位值时跳过检查） */
   updateRepo: string
-  /** 自有界面强调色主题（仅影响 Deepseek 自有页面，官方 web 不变） */
-  accent: 'blue' | 'green' | 'violet' | 'amber'
 }
 
 export interface ConfigState {
@@ -251,162 +216,6 @@ export interface PluginEntry {
   description?: string
 }
 
-/** 插件目录条目（renderer 视图：在 PluginEntry 基础上追加来源与分类元数据） */
-export interface PluginCatalogEntry extends PluginEntry {
-  /** 版本固定（pin），空串表示未锁定 */
-  version: string
-  /** 项目页 / npm 页 */
-  repo?: string
-  category?: string
-  /** verified = npm 元数据可追溯仓库；community = 仅 npm 分发或仅源码 */
-  compatibility?: 'verified' | 'community'
-  /** 分发来源：npm（默认）= registry 安装；github = 仅源码，按 installSpec 直装 */
-  source?: 'npm' | 'github'
-  /** GitHub 直装规格（git+https URL，pin 到验证时提交；仅 source=github 时存在） */
-  installSpec?: string
-}
-
-/* ───────────────────────── 会话中心 ───────────────────────── */
-
-/** 工作区（Trae Workspace 风格项目卡片数据源，镜像官方 workspace.view 结构） */
-export interface WorkspaceSummary {
-  workspaceId: string
-  /** 项目目录绝对路径 */
-  path: string
-  /** 项目名（官方标题，缺省回退路径 basename） */
-  title: string
-  /** 会话数（含已归档） */
-  sessionCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-/** 会话摘要（镜像官方 session.list 的 SessionSummary 投影） */
-export interface SessionSummary {
-  sessionId: string
-  /** 归属工作区 id（本地兜底数据可能缺失） */
-  workspaceId?: string
-  /** 会话标题（无标题回退首提示摘要） */
-  title: string
-  /** 会话所在项目目录 */
-  cwd?: string
-  /** 子代理会话来源标记 */
-  origin?: 'subagent'
-  parentSessionId?: string
-  /** 运行中 / 空白会话（官方字段，本地兜底时为 false） */
-  running: boolean
-  blank: boolean
-  createdAt: number
-  /** 最近活动时间（ms） */
-  updatedAt: number
-  /** 本地投影：轮数 / 步数（官方接口未返回时由本地缓存补充） */
-  turns?: number
-  steps?: number
-}
-
-export interface SessionsListResult {
-  items: SessionSummary[]
-  /** 官方 workspace.list 返回的已归档会话 id（本地兜底为空） */
-  archivedSessionIds: string[]
-  /** 数据来源：official = dsh web RPC；local = ~/.dsh 本地直读（web 未就绪） */
-  source: 'official' | 'local'
-}
-
-export interface SessionsSearchItem {
-  sessionId: string
-  /** 命中片段（官方 session.search 提供；本地兜底为标题/路径匹配说明） */
-  snippet: string
-  title?: string
-  cwd?: string
-  updatedAt?: number
-}
-
-export interface SessionsSearchResult {
-  items: SessionsSearchItem[]
-  hasMore: boolean
-  source: 'official' | 'local'
-}
-
-export type SessionExportFormat =
-  /** 官方存档 zip（含子代理会话；经 dsh web /api/session.export） */
-  | 'zip'
-  /** 本地方案：zstd 会话日志渲染为可读 Markdown */
-  | 'markdown'
-  /** 本地方案：解压后的原始 JSONL（官方 session.jsonl 格式） */
-  | 'jsonl'
-
-export interface SessionsExportResult {
-  ok: boolean
-  /** 成功时的保存路径（取消保存时 ok=false 且无错误提示） */
-  path?: string
-  /** 用户可见错误 / 提示 */
-  message?: string
-  /** 用户取消了保存对话框 */
-  cancelled?: boolean
-}
-
-export interface SessionsResumeResult {
-  ok: boolean
-  message?: string
-}
-
-/* ───────────────────────── 工作区文件树 ───────────────────────── */
-
-export interface FileEntry {
-  name: string
-  dir: boolean
-  /** 文件大小（字节；目录为 0） */
-  size: number
-  /** 修改时间（ms） */
-  mtimeMs: number
-}
-
-export interface WorkspaceListDirResult {
-  ok: boolean
-  /** 绝对路径回显 */
-  path: string
-  entries: FileEntry[]
-  /** 目录不可读/不存在等错误说明 */
-  message?: string
-}
-
-export interface GitChangeEntry {
-  /** 相对仓库根的文件路径 */
-  file: string
-  /** porcelain XY 状态码（M/A/D/R/空格 等；?? = 未跟踪） */
-  code: string
-}
-
-export interface WorkspaceGitStatusResult {
-  /** 路径是否为 git 仓库 */
-  repo: boolean
-  changes: GitChangeEntry[]
-  message?: string
-}
-
-/* ───────────────────────── 插件健康检查 ───────────────────────── */
-
-export type PluginHealthState = 'healthy' | 'stale' | 'missing' | 'broken'
-
-export interface PluginHealthItem {
-  name: string
-  state: PluginHealthState
-  /** 当前安装版本（未安装 / 损坏时为空） */
-  installedVersion?: string
-  /** 目录 pin 的最新可用版本（无目录条目时为空） */
-  catalogVersion?: string
-  /** 健康检查说明（损坏原因 / 可更新提示） */
-  detail?: string
-}
-
-export interface PluginHealthResult {
-  items: PluginHealthItem[]
-  /** 存在可更新插件 */
-  updatableCount: number
-  /** 存在异常插件（missing/broken） */
-  brokenCount: number
-}
-
 /* ───────────────────────── dshfind 在线市场 ───────────────────────── */
 
 export interface MarketPluginEntry {
@@ -451,45 +260,20 @@ export interface DeepseekApi {
   applyUpdater(version?: string): Promise<{ ok: boolean; message?: string }>
   onUpdaterStatus(listener: (status: UpdaterStatusPayload) => void): () => void
 
-  /* 插件（handler 由插件管理阶段实现） */
+  /* 插件市场 */
   listPlugins(): Promise<{ plugins: PluginEntry[] }>
-  getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
   installPlugin(
     name: string,
     version?: string,
     spec?: string
   ): Promise<{ ok: boolean; message?: string }>
-  removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
-  checkPluginsHealth(): Promise<PluginHealthResult>
-  updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
   searchMarket(query: string): Promise<MarketSearchResult>
   refreshMarket(): Promise<MarketSearchResult>
-
-  /* 会话中心 */
-  listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>
-  listSessions(workspaceId?: string): Promise<SessionsListResult>
-  searchSessions(query: string): Promise<SessionsSearchResult>
-  exportSession(
-    sessionId: string,
-    format: SessionExportFormat,
-    includeDescendants?: boolean
-  ): Promise<SessionsExportResult>
-  resumeSession(sessionId: string): Promise<SessionsResumeResult>
-  openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
-
-  /* 壳窗口（主界面工具栏） */
-  openPluginsWindow(): Promise<{ ok: boolean }>
-  openSessionsWindow(): Promise<{ ok: boolean }>
-
-  /* 工作区文件树 */
-  listDirectory(path: string): Promise<WorkspaceListDirResult>
-  workspaceGitStatus(path: string): Promise<WorkspaceGitStatusResult>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>
   saveApiKey(key: string): Promise<{ ok: boolean; message?: string }>
   saveModel(model: string): Promise<{ ok: boolean; message?: string }>
-  savePreferences(patch: Partial<Preferences>): Promise<Preferences>
 
   /* 事件订阅（返回取消函数） */
   onStatus(listener: (status: RuntimeStatus) => void): () => void

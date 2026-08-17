@@ -11,8 +11,8 @@
  *   3. 等 CDP 端口就绪后 chromium.connectOverCDP 连接，对全部 page target
  *      挂 console / pageerror 监听（断言失败时输出辅助诊断）。
  *   4. 依次驱动并断言七个场景（a 首启引导 / b 启动进度与 web /
- *      c 凭据与模型 IPC / d 插件目录与并发锁 / e 更新检查降级 /
- *      f 会话中心与插件健康 / g 会话中心窗口 UI），
+ *      c 凭据与模型 IPC / d 插件安装并发锁 / e 更新检查降级 /
+ *      f 官方页面内插件市场 / g 官方 Web 全屏），
  *      截图落 tests/e2e/artifacts/。
  *   5. 优雅退出：SIGTERM Electron（主进程 before-quit 会停掉 dsh web），
  *      超时强杀；删除全部临时目录。
@@ -106,9 +106,6 @@ const childEnv = {
   HOME: fakeHome,
   // macOS 上 Electron 忽略 HOME：显式覆盖 userData，保证偏好/日志/单实例锁全部隔离
   DSH_USER_DATA: join(fakeHome, 'userData'),
-  // E2E 钩子：自动打开指定自有窗口（主进程仅在非打包态 + 该环境变量下响应；
-  // 默认 sessions，可经环境变量覆盖为 plugins 以抓取插件窗口截图）
-  DSH_E2E_WINDOW: process.env.DSH_E2E_WINDOW || 'sessions',
   // 生产形态启动：显式移除 dev server 变量，确保 preload 走 file: 分支
   ELECTRON_RENDERER_URL: ''
 }
@@ -298,42 +295,21 @@ try {
   await splash.screenshot({ path: join(artifactsDir, '03-settings-ipc.png') })
   log('截图 03-settings-ipc.png')
 
-  /* ════════ Step d：插件目录与并发锁 ════════ */
-  log('— Step d：插件目录 / 已装列表 / 并发锁 —')
-  const catalogRes = await splash.evaluate(() => window.api.getPluginCatalog())
-  const catalog = catalogRes?.catalog ?? []
-  assertOk(Array.isArray(catalog) && catalog.length >= 8, 'd1 插件目录 ≥8 条', `实际 ${catalog.length} 条`)
-  assertOk(
-    catalog.every((p) => typeof p.name === 'string' && p.name.length > 0),
-    'd2 每条目录项含 name'
-  )
-  assertOk(
-    catalog.every((p) => typeof p.version === 'string' || typeof p.description === 'string'),
-    'd3 每条目录项含 version/description 字段'
-  )
-  const githubEntries = catalog.filter((p) => p.source === 'github')
-  assertOk(githubEntries.length >= 5, 'd3b 目录含 GitHub 直装条目 ≥5', `实际 ${githubEntries.length} 条`)
-  assertOk(
-    githubEntries.every(
-      (p) => typeof p.installSpec === 'string' && /^git\+https:\/\/github\.com\//.test(p.installSpec)
-    ),
-    'd3c GitHub 直装规格均为 github.com git URL 且已 pin'
-  )
-  const scopedEntries = catalog.filter((p) => p.name.startsWith('@'))
-  assertOk(scopedEntries.length >= 2, 'd3d 目录含 scoped 包条目 ≥2', `实际 ${scopedEntries.length} 条`)
+  /* ════════ Step d：插件安装并发锁 ════════ */
+  log('— Step d：插件已装列表 / 并发锁 —')
   // 非法直装规格必须被主进程拒绝（白名单校验，不触碰网络）
   const badSpec = await splash.evaluate(() =>
     window.api.installPlugin('__e2e_probe__', undefined, 'git+https://gitlab.com/o/r.git')
   )
   assertOk(
     badSpec?.ok === false && typeof badSpec?.message === 'string' && badSpec.message.includes('直装规格无效'),
-    'd3e 非法直装规格被主进程白名单拒绝'
+    'd1 非法直装规格被主进程白名单拒绝'
   )
 
   const listRes = await splash.evaluate(() => window.api.listPlugins())
   assertOk(
     Array.isArray(listRes?.plugins) && listRes.plugins.length === 0,
-    'd4 全新环境 listPlugins 返回空数组',
+    'd2 全新环境 listPlugins 返回空数组',
     `实际 ${listRes?.plugins?.length} 条`
   )
 
@@ -350,11 +326,11 @@ try {
   const rejected = concurrent.filter(
     (r) => typeof r.message === 'string' && r.message.includes('已有插件操作进行中')
   )
-  assertOk(rejected.length >= 1, 'd5 并发第二个插件操作被拒绝（报错文案匹配）', JSON.stringify(concurrent.map((r) => r.message)))
+  assertOk(rejected.length >= 1, 'd3 并发第二个插件操作被拒绝（报错文案匹配）', JSON.stringify(concurrent.map((r) => r.message)))
   const listAfter = await splash.evaluate(() => window.api.listPlugins())
   assertOk(
     Array.isArray(listAfter?.plugins) && listAfter.plugins.length === 0,
-    'd6 失败的探测安装未留下任何插件'
+    'd4 失败的探测安装未留下任何插件'
   )
 
   /* ════════ Step e：更新检查降级 ════════ */
@@ -377,103 +353,47 @@ try {
   const alive = await splash.evaluate(() => 1 + 1)
   assertOk(alive === 2, 'e3 主窗口（splash target）仍存活可交互')
 
-  /* 外观主题偏好：保存 → 读取 → 恢复（仅自有界面，官方 web 不变） */
-  const accentSaved = await splash.evaluate(() => window.api.savePreferences({ accent: 'violet' }))
-  assertOk(accentSaved?.accent === 'violet', 'c9 强调色偏好保存生效', JSON.stringify(accentSaved))
-  const accentRestored = await splash.evaluate(() => window.api.savePreferences({ accent: 'blue' }))
-  assertOk(accentRestored?.accent === 'blue', 'c10 强调色偏好可恢复默认', JSON.stringify(accentRestored))
+  /* ════════ Step f：官方 Web 原生扩展 ════════ */
+  log('— Step f：官方 Web 插件市场扩展 —')
+  const webPage = await waitFor(
+    () => findPage((u) => u.includes('127.0.0.1') && u.includes('dshDesktopBridge=')),
+    { timeoutMs: 30_000, label: '官方 Web 携带本机桥接配置' }
+  )
+  assertOk(Boolean(webPage), 'f1 官方 Web 已加载受限本机桥接配置')
+  const extensionPackage = join(repoRoot, 'resources', 'runtime', 'dsh', 'node_modules', '@deepseek-ai', 'dsh-desktop-market', 'lib', 'client.js')
+  assertOk(existsSync(extensionPackage), 'f2 官方 Web 插件市场包已随运行时分发', extensionPackage.replace(repoRoot, '<REPO>'))
+  const bootEntryIds = await webPage.evaluate(() =>
+    Array.isArray(window.__DSH_BOOT__?.entries)
+      ? window.__DSH_BOOT__.entries.map((entry) => entry.id)
+      : []
+  )
+  assertOk(bootEntryIds.includes('@deepseek-ai/dsh-desktop-market'), 'f3 官方 Web 启动图已登记插件市场 client bundle', JSON.stringify(bootEntryIds))
+  const continueButton = webPage.getByRole('button', { name: '继续' })
+  if (await continueButton.count()) await continueButton.click()
+  const settingsNav = webPage.getByText('设置', { exact: true })
+  await waitFor(() => settingsNav.count().then((count) => count > 0), { timeoutMs: 15_000, label: '官方设置入口出现' })
+  await settingsNav.last().click()
+  const pluginsNav = webPage.getByText('插件', { exact: true })
+  await waitFor(() => pluginsNav.count().then((count) => count > 0), { timeoutMs: 15_000, label: '官方插件设置入口出现' })
+  await pluginsNav.last().click()
+  const marketTab = webPage.getByText('插件市场', { exact: true })
+  await waitFor(() => marketTab.count().then((count) => count > 0), { timeoutMs: 15_000, label: '插件市场标签出现' })
+  await marketTab.click()
+  const marketSearch = webPage.getByRole('searchbox', { name: '搜索插件市场' })
+  await waitFor(() => marketSearch.count().then((count) => count === 1), { timeoutMs: 15_000, label: '插件市场搜索框出现' })
+  assertOk(await marketSearch.isVisible(), 'f4 插件市场已在官方设置中实际渲染')
+  const marketCards = webPage.locator('.dsm_card')
+  await waitFor(() => marketCards.count().then((count) => count > 0), { timeoutMs: 45_000, label: '插件市场返回可安装条目' })
+  assertOk(await marketCards.count() > 0, 'f5 插件市场已通过桥接加载可安装条目')
+  await webPage.screenshot({ path: join(artifactsDir, '04-plugin-market.png') })
+  const marketErrors = collectedPageErrors.filter((error) => error.includes('dsh-desktop-market'))
+  assertOk(marketErrors.length === 0, 'f6 插件市场加载无客户端错误', JSON.stringify(marketErrors))
+  assertOk(!context.pages().some((page) => /(?:plugins|sessions)\.html/.test(page.url())), 'f7 未打开自有插件或会话窗口')
 
-  /* ════════ Step f：会话中心 + 插件健康（2.0） ════════ */
-  log('— Step f：会话中心 + 插件健康 —')
-  const workspacesRes = await splash.evaluate(() => window.api.listWorkspaces())
-  assertOk(
-    Array.isArray(workspacesRes?.workspaces),
-    'f1 listWorkspaces 返回数组（全新环境为空）',
-    JSON.stringify(workspacesRes)
-  )
-  const sessionsRes = await splash.evaluate(() => window.api.listSessions())
-  assertOk(
-    Array.isArray(sessionsRes?.items) && ['official', 'local'].includes(sessionsRes?.source),
-    'f2 listSessions 返回合法结构（official/local 双源）',
-    JSON.stringify(sessionsRes)
-  )
-  const searchRes = await splash.evaluate(() => window.api.searchSessions('不存在的会话内容'))
-  assertOk(
-    Array.isArray(searchRes?.items) && searchRes.items.length === 0,
-    'f3 searchSessions 空结果不抛错',
-    JSON.stringify(searchRes)
-  )
-  const healthRes = await splash.evaluate(() => window.api.checkPluginsHealth())
-  assertOk(
-    Array.isArray(healthRes?.items) && healthRes.updatableCount === 0 && healthRes.brokenCount === 0,
-    'f4 全新环境插件健康检查为空且无异常',
-    JSON.stringify(healthRes)
-  )
-  const resumeRes = await splash.evaluate(() => window.api.resumeSession(''))
-  assertOk(resumeRes?.ok === true, 'f5 resumeSession(空) 打开主窗口语义返回 ok', JSON.stringify(resumeRes))
-  const folderRes = await splash.evaluate(() => window.api.openWorkspaceFolder('/definitely/not/exists'))
-  assertOk(folderRes && typeof folderRes.ok === 'boolean', 'f6 openWorkspaceFolder 返回结构合法', JSON.stringify(folderRes))
-
-  /* ════════ Step g：自有窗口 UI（DSH_E2E_WINDOW 钩子打开，默认 sessions） ════════ */
-  const e2eWindow = process.env.DSH_E2E_WINDOW || 'sessions'
-  log(`— Step g：${e2eWindow} 窗口 —`)
-  const sessionsPage = await waitFor(
-    () => findPage((u) => u.includes(`${e2eWindow}.html`)),
-    { timeoutMs: 60_000, label: `${e2eWindow} 窗口出现` }
-  )
-  await sessionsPage.waitForLoadState('domcontentloaded')
-  await waitFor(
-    () => sessionsPage.evaluate(() => Boolean(window.api)),
-    { timeoutMs: 30_000, label: '会话中心窗口 window.api 就绪' }
-  )
-  const wsOnSessions = await sessionsPage.evaluate(() => window.api.listWorkspaces())
-  assertOk(
-    Array.isArray(wsOnSessions?.workspaces),
-    `g1 ${e2eWindow} 窗口 api 可用`,
-    JSON.stringify(wsOnSessions)
-  )
-  await sleep(1000) // 等页面渲染完成再截图
-  await sessionsPage.screenshot({ path: join(artifactsDir, `04-${e2eWindow}.png`) })
-  log(`截图 04-${e2eWindow}.png`)
-
-  /* ════════ Step h：无覆盖栏的主窗口 + 工作区文件树 API ════════ */
-  log('— Step h：官方 Web 全屏 + 工作区文件树 —')
+  /* ════════ Step g：无覆盖栏的主窗口 ════════ */
+  log('— Step g：官方 Web 全屏 —')
   const hasToolbarTarget = context.pages().some((page) => page.url().includes('toolbar.html'))
-  assertOk(!hasToolbarTarget, 'h1 主窗口未加载自定义工具栏页面')
-  const openRes = await splash.evaluate(() => window.api.openSessionsWindow())
-  assertOk(openRes?.ok === true, 'h2 原生 IPC 可打开会话中心', JSON.stringify(openRes))
-
-  const dirRes = await splash.evaluate(() => window.api.listDirectory('.'))
-  assertOk(
-    dirRes?.ok === true && Array.isArray(dirRes.entries) && dirRes.entries.length > 0,
-    'h3 listDirectory 返回目录条目',
-    JSON.stringify({ ok: dirRes?.ok, count: dirRes?.entries?.length })
-  )
-  const hasPkg = dirRes.entries.some((e) => e.name === 'package.json' && !e.dir)
-  assertOk(hasPkg, 'h4 目录条目含 package.json')
-  const gitRes = await splash.evaluate(() => window.api.workspaceGitStatus('.'))
-  assertOk(
-    gitRes?.repo === true && Array.isArray(gitRes.changes),
-    'h5 workspaceGitStatus 识别 git 仓库',
-    JSON.stringify(gitRes)
-  )
-
-  /* ════════ Step i：插件窗口搜索交互（仅 plugins 窗口场景） ════════ */
-  if (e2eWindow === 'plugins') {
-    log('— Step i：插件目录搜索交互 —')
-    const filtered = await sessionsPage.evaluate(async () => {
-      const input = document.getElementById('catalogSearch')
-      input.value = 'dsh-tool-search'
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-      await new Promise((r) => setTimeout(r, 400))
-      const count = document.querySelectorAll('#catalogList .item').length
-      // 恢复：清空关键词
-      input.value = ''
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-      return count
-    })
-    assertOk(filtered >= 1 && filtered <= 3, 'i1 目录搜索过滤生效（关键词命中 1-3 条）', `命中 ${filtered} 条`)
-  }
+  assertOk(!hasToolbarTarget, 'g1 主窗口未加载自定义工具栏页面')
 
   /* ───────── 汇总 ───────── */
   const statusNow = await splash.evaluate(() => window.api.getStatus())

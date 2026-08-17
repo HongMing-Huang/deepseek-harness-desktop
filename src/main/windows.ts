@@ -12,12 +12,9 @@ import { join } from 'node:path'
  * 窗口与视图布局的单一职责小模块：
  * - 主窗口：splash 承载于窗口自身 webContents；运行时就绪后改为
  *   contentView 单子视图 —— dshWebView（全幅，加载 dsh web，无 preload）；
- * - 会话 / 插件窗口（单例，重复打开时聚焦）；
- * - 应用菜单提供辅助功能入口，不覆盖官方 Web 内容。
+ * - 官方 Web 是唯一业务界面；
+ * - 应用菜单只提供系统级编辑和窗口能力，不覆盖官方 Web 内容。
  */
-
-let pluginsWindow: BrowserWindow | null = null
-let sessionsWindow: BrowserWindow | null = null
 
 /* ── 主窗口子视图（模块级单例：应用仅一个主窗口，closed 时清理） ── */
 
@@ -73,41 +70,6 @@ function isLocalDshWebUrl(url: string): boolean {
   } catch {
     return false
   }
-}
-
-/**
- * 自有窗口（插件/会话中心）外链策略：
- * - window.open / target=_blank：https 链接一律交给系统浏览器（openExternal）并 deny；
- * - 页面导航：仅允许回到本窗口自己的页面地址（三个自有页面的精确前缀），
- *   其余 will-navigate 阻止——防止任意 file:// 本地文件读取或远程跳转劫持。
- */
-const OWN_PAGES = ['plugins.html', 'sessions.html']
-
-function ownPageUrls(): string[] {
-  const devServer = process.env['ELECTRON_RENDERER_URL']
-  if (devServer) {
-    return OWN_PAGES.map((page) => `${devServer}/${page}`)
-  }
-  const rendererDir = join(__dirname, '../renderer')
-  return OWN_PAGES.map((page) => join(rendererDir, page))
-}
-
-function applyOwnWindowLinkPolicy(win: BrowserWindow): void {
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://') || url.startsWith('http://')) {
-      void shell.openExternal(url)
-    }
-    return { action: 'deny' }
-  })
-  win.webContents.on('will-navigate', (event, url) => {
-    const allowed = ownPageUrls().some((own) => url.startsWith(own))
-    if (!allowed) {
-      event.preventDefault()
-      if (url.startsWith('https://') || url.startsWith('http://')) {
-        void shell.openExternal(url)
-      }
-    }
-  })
 }
 
 /** 创建主窗口（加载 splash 页；ready 后由 showDshWebView 切换 dsh web 视图） */
@@ -207,77 +169,9 @@ function layoutMainViews(): void {
   }
 }
 
-/* ── 插件窗口（单例） ── */
-
-/** 打开插件管理窗口（单例：已存在则聚焦） */
-export function openPluginsWindow(): void {
-  if (pluginsWindow && !pluginsWindow.isDestroyed()) {
-    pluginsWindow.focus()
-    return
-  }
-  pluginsWindow = new BrowserWindow({
-    width: 720,
-    height: 560,
-    minWidth: 640,
-    minHeight: 480,
-    show: false,
-    title: '插件',
-    backgroundColor: '#f7f8fa',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webviewTag: false
-    }
-  })
-
-  applyOwnWindowLinkPolicy(pluginsWindow)
-  pluginsWindow.on('ready-to-show', () => pluginsWindow?.show())
-  void loadWindowPage(pluginsWindow, 'plugins.html')
-  pluginsWindow.on('closed', () => {
-    pluginsWindow = null
-  })
-}
-
-/* ── 会话中心窗口（单例） ── */
-
-/** 打开会话中心窗口（单例：已存在则聚焦） */
-export function openSessionsWindow(): void {
-  if (sessionsWindow && !sessionsWindow.isDestroyed()) {
-    sessionsWindow.focus()
-    return
-  }
-  sessionsWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    minWidth: 800,
-    minHeight: 560,
-    show: false,
-    title: '会话',
-    backgroundColor: '#f7f8fa',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webviewTag: false
-    }
-  })
-
-  applyOwnWindowLinkPolicy(sessionsWindow)
-  sessionsWindow.on('ready-to-show', () => sessionsWindow?.show())
-  void loadWindowPage(sessionsWindow, 'sessions.html')
-  sessionsWindow.on('closed', () => {
-    sessionsWindow = null
-  })
-}
-
 /* ── 应用菜单 ── */
 
-/** 应用菜单：会话 / 插件入口 + 基础编辑能力（输入框复制粘贴必需） */
+/** 应用菜单：基础编辑和窗口能力（输入框复制粘贴必需） */
 export function setupAppMenu(): void {
   const isMac = process.platform === 'darwin'
   const isDev = Boolean(process.env['ELECTRON_RENDERER_URL'])
@@ -287,9 +181,6 @@ export function setupAppMenu(): void {
         {
           label: app.getName(),
           submenu: [
-            { label: '会话中心…', click: () => openSessionsWindow() },
-            { label: '插件…', click: () => openPluginsWindow() },
-            { type: 'separator' },
             { role: 'hide', label: '隐藏 Deepseek' },
             { role: 'unhide', label: '显示全部' },
             { type: 'separator' },
@@ -305,18 +196,6 @@ export function setupAppMenu(): void {
           ]
         }
       ]
-
-  const toolsMenu: MenuItemConstructorOptions = {
-    label: '工具',
-    submenu: [
-      {
-        label: '会话中心…',
-        accelerator: 'CmdOrCtrl+Shift+S',
-        click: () => openSessionsWindow()
-      },
-      { label: '插件…', click: () => openPluginsWindow() }
-    ]
-  }
 
   const viewItems: MenuItemConstructorOptions[] = []
   if (isDev) {
@@ -338,8 +217,7 @@ export function setupAppMenu(): void {
           { role: 'selectAll', label: '全选' }
         ]
       },
-      viewMenu,
-      toolsMenu
+      viewMenu
     ])
   )
 }

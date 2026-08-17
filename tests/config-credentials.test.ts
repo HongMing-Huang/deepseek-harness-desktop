@@ -173,12 +173,11 @@ test('migrateLegacyPreferences：旧占位仓库值迁移为真实仓库', () =>
     lastCheck: null,
     lastKnownGoodDsh: null,
     bootFailCount: 0,
-    updateRepo: 'owner/deepseek-harness-desktop',
-    accent: 'blue'
+    updateRepo: 'owner/deepseek-harness-desktop'
   } satisfies Preferences
   const migrated = migrateLegacyPreferences(legacy)
   assert.equal(migrated.updateRepo, 'HongMing-Huang/deepseek-harness-desktop')
-  assert.equal(migrated.accent, 'blue', '其余字段保持不变')
+  assert.equal(migrated.updateCheckEnabled, true, '其余字段保持不变')
 
   const normal = { ...legacy, updateRepo: 'someone-else/deepseek-harness-desktop' }
   assert.equal(migrateLegacyPreferences(normal).updateRepo, 'someone-else/deepseek-harness-desktop', '非占位值不动')

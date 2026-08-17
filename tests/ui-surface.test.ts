@@ -16,27 +16,37 @@ test('主窗口不注入自定义工具栏，官方 Web 占满内容区', () => 
   assert.match(windows, /dshWebView\.setBounds\(\{ x: 0, y: 0, width, height \}\)/)
 })
 
-test('设置窗口与入口已移除，会话和插件仍由原生菜单打开', () => {
+test('业务界面只由官方 Web 承载，不保留会话、插件或设置独立窗口', () => {
   const windows = source('src/main/windows.ts')
   const tray = source('src/main/tray.ts')
   assert.doesNotMatch(windows, /openSettingsWindow/)
   assert.doesNotMatch(windows, /settings\.html/)
-  assert.match(windows, /label: '会话中心…'/)
-  assert.match(windows, /label: '插件…'/)
+  assert.doesNotMatch(windows, /openSessionsWindow/)
+  assert.doesNotMatch(windows, /openPluginsWindow/)
+  assert.doesNotMatch(windows, /会话中心/)
+  assert.doesNotMatch(windows, /插件…/)
+  assert.doesNotMatch(tray, /插件市场/)
   assert.doesNotMatch(tray, /label: '设置'/)
   assert.doesNotMatch(tray, /label: '检查更新'/)
 })
 
-test('插件市场保留真实安装入口，但不显示全量更新按钮', () => {
-  const plugins = source('src/renderer/plugins.html')
-  assert.match(plugins, /id="tabMarket"/)
-  assert.match(plugins, /id="catalogList"/)
-  assert.doesNotMatch(plugins, /id="updateAllBtn"/)
-  assert.doesNotMatch(plugins, /一键全量更新/)
+test('插件市场作为官方插件设置 slot 扩展，并只使用官方设计 token', () => {
+  const extension = source('extensions/official-web/lib/client.js')
+  const manifest = source('extensions/official-web/package.json')
+  assert.match(manifest, /"dsh"/)
+  assert.match(manifest, /"client"/)
+  assert.match(extension, /settings\.plugins\.tab/)
+  assert.match(extension, /id: 'market'/)
+  assert.match(extension, /--dsw-alias-/)
+  assert.doesNotMatch(extension, /#[0-9a-fA-F]{3,8}/)
+  assert.doesNotMatch(extension, /一键全量更新/)
 })
 
-test('插件窗口不向用户展示运行时堆栈', () => {
-  const plugins = source('src/renderer/plugins.js')
-  assert.match(plugins, /function displayPluginError/)
-  assert.match(plugins, /操作失败，请检查网络或插件兼容性后重试。/)
+test('官方 Web 市场只通过受限 loopback 桥接访问客户端能力', () => {
+  const bridge = source('src/main/web-bridge.ts')
+  assert.match(bridge, /127\.0\.0\.1/)
+  assert.match(bridge, /origin !== this\.dshOrigin/)
+  assert.match(bridge, /searchMarket/)
+  assert.match(bridge, /installPlugin/)
+  assert.doesNotMatch(bridge, /dshDesktopToken/)
 })

@@ -24,7 +24,7 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir, arch as osArch, platform as osPlatform } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
@@ -538,6 +538,17 @@ async function prepareDsh(): Promise<void> {
   log(`✓ dsh 安装完成，版本清单：${versionFile}`)
 }
 
+/** 将客户端自有的官方 slot 扩展放入 dsh 运行时依赖树，供 Loader 稳定解析。 */
+async function prepareOfficialWebExtension(): Promise<void> {
+  const source = join(PROJECT_ROOT, 'extensions', 'official-web')
+  const target = join(RUNTIME_DIR, 'dsh', 'node_modules', '@deepseek-ai', 'dsh-desktop-market')
+  if (!existsSync(join(source, 'package.json')) || !existsSync(join(source, 'lib', 'client.js'))) {
+    fail(`官方 Web 扩展资源缺失：${source}`)
+  }
+  await cp(source, target, { recursive: true, force: true })
+  log('✓ 官方 Web 插件市场扩展已写入 dsh 运行时')
+}
+
 // ── 瘦身 ────────────────────────────────────────────────────────────
 
 /** 删除非目标架构的 node/<other>/、pnpm/<other>/（dist 前瘦身；CI 原生 runner 本就只备单架构） */
@@ -571,6 +582,7 @@ async function main(): Promise<void> {
   await prepareNode(nodeVersion, opts)
   await preparePnpm(opts)
   await prepareDsh()
+  await prepareOfficialWebExtension()
 
   if (opts.pruneOthers) {
     await pruneOtherArchives(arch)

@@ -14,20 +14,20 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square" alt="MIT License"></a>
 </p>
 
-Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本地 Web UI 打包为开箱即用的桌面应用：内嵌 Node / pnpm / dsh 运行时，零环境依赖；官方 dsh web **一律不改动、不注入**，主窗口不覆盖工具栏，会话中心与插件市场通过原生菜单打开。
+Deepseek（仓库 `deepseek-harness-desktop`）把官方 DeepSeek Harness 的本地 Web UI 打包为开箱即用的桌面应用：内嵌 Node / pnpm / dsh 运行时，零环境依赖；主窗口不覆盖工具栏。除插件市场使用官方提供的设置扩展槽位外，官方 Web 不改动。
 
 ## 界面预览
 
-| 启动引导 | 官方 Web 界面 | 会话中心 |
-| --- | --- | --- |
-| <img src="site/assets/screenshots/splash-welcome.png" width="240" alt="启动引导"> | <img src="site/assets/screenshots/official-web.png" width="240" alt="官方 Web 界面"> | <img src="site/assets/screenshots/sessions-center.png" width="240" alt="会话中心"> |
+| 启动引导 | 官方 Web 界面 |
+| --- | --- |
+| <img src="site/assets/screenshots/splash-welcome.png" width="240" alt="启动引导"> | <img src="site/assets/screenshots/official-web.png" width="240" alt="官方 Web 界面"> |
 
 ## 它解决了什么
 
 - **零门槛启动**：Node、pnpm、dsh 全部内置随包分发，不碰系统环境，删掉 App 即彻底卸载；
 - **官方体验不打折**：原样内嵌官方 Web 界面，运行时来自官方 npm 分发并做来源校验，每 6 小时自动检查新版、人工验证后合并，不做静默升级；
-- **会话管理像桌面应用**：项目卡片首页（Trae 风格）+ 跨工作区浏览 / 搜索 / 恢复 / 导出（官方 zip / Markdown / JSONL），对官方数据全程只读；
-- **插件装得省心**：精选目录 + dshfind 在线市场（1200+ 条目搜索即装），兼容徽章、健康检查，源码插件一键直装；
+- **官方会话能力原样保留**：会话、工作区和文件相关操作均由官方 Web 提供，桌面端不再维护额外会话页面；
+- **插件装得省心**：dshfind 在线市场嵌入官方「设置 → 插件」页面，搜索与安装通过受限本机桥接完成；
 - **出错有人管**：启动失败分类、端口占用清理、双轨更新失败自动回退，托盘通知随时送达。
 
 ## 安装
@@ -60,11 +60,9 @@ npm run dist:linux-x64
 
 ## 功能详解
 
-**红线**：官方 dsh web 不修改、不注入（`dshWebView` 无 preload、强沙箱）；dsh 运行时始终来自官方 npm 分发。
+**红线**：主窗口不注入 preload、保持强沙箱；插件市场仅通过官方 `settings.plugins.tab` 扩展槽位接入，dsh 运行时始终来自官方 npm 分发。
 
-- **会话中心**（菜单「工具 → 会话中心」`Cmd/Ctrl+Shift+S`，托盘同级入口）：列表数据来自官方 `workspace.list` / `session.list` RPC 与 `~/.dsh` 本地存储双源合并，web 未就绪自动回退本地直读；全文搜索走官方 `session.search`，部署关闭索引时回退标题/路径匹配；导出走官方 `/api/session.export`（zip 含子代理会话），Markdown / JSONL 由本地按官方 zstd 帧算法解码渲染（离线可用）；「恢复」打开官方 Web 界面并定位会话所在项目目录。**对 `~/.dsh` 全程只读。**
-- **插件市场 2.0**：目录条目分 `npm`（registry 分发，pin 精确版本；含 scoped 包）与 `github`（仅源码分发，`git+https…@<提交>` 直装）两类来源，直装规格经主进程白名单校验；安装时按官方指引自动把包名写入 profile `pnpm-workspace.yaml` 的 `allowBuilds`（pnpm 10 映射形态）放行构建脚本；健康检查四态徽章显示已安装插件状态。
-- **dshfind 在线市场**：应用内「插件 → dshfind 市场」Tab，主进程拉取并解析 dshfind.com 列表页（1200+ 条目），userData 缓存 24h 本地搜索；安装复用其官方命令 `github:<author>/<name>`；网络/结构变化均明确降级，不产出垃圾条目。
+- **插件市场**：官方「设置 → 插件」中新增「插件市场」Tab；主进程拉取 dshfind.com 列表页并缓存，安装仍走官方插件命令。市场扩展包随运行时分发，并由启动图登记后加载。
 
 ## 更新边界
 
@@ -73,11 +71,10 @@ npm run dist:linux-x64
 | dsh 运行时（`src/shared/versions.ts`） | `sync-upstream` 机器人检测 npm 新版本 → 开 PR → **人工验证合并** | 每 6 小时检查 |
 | 应用壳版本（`package.json` version） | 「版本 PR」人工 bump，Release 认 `v*` tag | 按需 |
 | 应用内 dsh 热更（侧载） | 应用内检查与安装，失败自动回退 | 24h 节流 / 手动 |
-| 插件目录 pin（`plugin-catalog.json`） | 人工验证 npm/GitHub 后提交 | 按需 |
 | dshfind 市场数据 | 应用内拉取缓存，TTL 24h | 每次搜索检查 |
 | 官网 `site/` | 随 main 提交，`pages.yml` 自动部署 | 随提交 |
-| 官方 dsh web | **永不修改、永不注入** | — |
-| 用户数据 `~/.dsh` | **应用从不改写**（会话中心只读，插件操作走官方 `dsh plugin`） | — |
+| 官方 dsh web | 不修改主界面；插件市场仅使用官方设置扩展槽位 | — |
+| dsh 数据目录 | 凭据、会话与插件由 dsh 管理；桌面端为市场扩展登记 Cordis patch 与只读运行时包链接 | 启动时 |
 
 ## 架构与安全
 
@@ -88,9 +85,10 @@ src/
 ├── main/                      # 主进程
 │   ├── index.ts               # 应用生命周期、窗口管理、运行时引导
 │   ├── ipc.ts                 # IPC 集中注册表
-│   ├── windows.ts             # 主窗口 / dsh web 视图 / 自有窗口与外链守卫
+│   ├── windows.ts             # 主窗口 / dsh web 视图 / 外链守卫
 │   ├── tray.ts                # 托盘常驻 + 原生通知（notify-gate.ts 去重）
-│   ├── sessions.ts            # 会话中心（官方 RPC 与 ~/.dsh 双源只读）
+│   ├── official-web-extension.ts # 官方设置扩展槽位登记
+│   ├── web-bridge.ts          # 市场的受限 loopback 桥接
 │   ├── config.ts / logger.ts  # 配置读写 / 文件日志
 │   └── runtime/
 │       ├── paths.ts           # 内嵌运行时路径解析与子进程环境
@@ -103,11 +101,11 @@ src/
 │       ├── updater.ts         # 双轨更新（壳 Release + dsh 热切换）
 │       └── error-classifier.ts # 启动失败分类与动作建议
 ├── preload/index.ts           # contextBridge 白名单（仅暴露 window.api）
-├── renderer/                  # 渲染进程（纯原生 JS，无框架）
-│   ├── splash / settings / plugins（含 dshfind 市场）/ sessions
+├── renderer/                  # 渲染进程（仅启动引导页）
+│   ├── splash
 └── shared/                    # IPC 通道与载荷定义、运行时版本清单
 
-tests/                         # node:test 单测 + playwright-core CDP E2E（七场景）
+tests/                         # node:test 单测 + playwright-core CDP E2E
 ```
 
 ## 官方生态链接
@@ -126,7 +124,7 @@ tests/                         # node:test 单测 + playwright-core CDP E2E（�
 
 ## 隐私与注释约定
 
-注释与文档只写开发内容，禁止个人信息（用户名、私有绝对路径、邮箱、主机名等）；`scripts/lint-privacy.mjs` 为 CI 门禁。应用与构建过程永不触碰 `~/.dsh`（凭据、配置、会话、插件均属 dsh 自身）。
+注释与文档只写开发内容，禁止个人信息（用户名、私有绝对路径、邮箱、主机名等）；`scripts/lint-privacy.mjs` 为 CI 门禁。凭据、配置、会话、插件均由 dsh 管理；桌面端只为内置市场登记扩展并调用官方插件命令。
 
 ## 卸载残留位置
 

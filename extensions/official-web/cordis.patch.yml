@@ -1,0 +1,3 @@
+- insert:
+    - id: dsh-desktop-market
+      name: '@deepseek-ai/dsh-desktop-market'

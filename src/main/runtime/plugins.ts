@@ -3,44 +3,24 @@ import { readFile } from 'node:fs/promises'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app } from 'electron'
-import semver from 'semver'
 import YAML from 'yaml'
 import { buildChildEnv, dshHome, resolveRuntime } from './paths'
 import { parsePluginProgressLine, splitProgressChunk } from './plugin-progress'
 import { broadcastOpProgress } from '../ipc'
 import { logger } from '../logger'
-import type {
-  PluginCatalogEntry,
-  PluginEntry,
-  PluginHealthItem,
-  PluginHealthResult
-} from '../../shared/ipc'
+import type { PluginEntry } from '../../shared/ipc'
 
 /**
  * dsh 插件管理（web profile）：
  * - 已装列表 = ~/.dsh/profiles/web/package.json 的 dependencies，
  *   描述从 node_modules/<pkg>/package.json 读取；
- * - 目录 = 随应用打包的 plugin-catalog.json（构建期由 electron.vite.config.ts 复制到 out/main）；
- * - 安装/卸载 = spawn `node dshBin plugin --profile web add|remove …`（转发给 profile 内 pnpm），
- *   全程 OpProgress 广播（op: plugin-install / plugin-remove），完成即提示重启生效；
+ * - 安装 = spawn `node dshBin plugin --profile web add …`（转发给 profile 内 pnpm），
+ *   全程 OpProgress 广播，完成即提示重启生效；
  * - 并发保护：同一时刻仅允许一个插件操作，后来者直接拒绝。
  */
 
-/** 目录条目类型与解析来源字段见 shared/ipc.ts 的 PluginCatalogEntry */
-
-interface CatalogFile {
-  plugins?: Array<{
-    name?: unknown
-    version?: unknown
-    description?: unknown
-    repo?: unknown
-    category?: unknown
-    compatibility?: unknown
-    source?: unknown
-    installSpec?: unknown
-  }>
-}
+/** 客户端随包提供的官方 Web 扩展不是用户安装的插件，不在市场清单中展示。 */
+const MANAGED_WEB_EXTENSION = '@deepseek-ai/dsh-desktop-market'
 
 /** web profile 根目录（pnpm 工作区） */
 function profileDir(): string {
@@ -59,6 +39,7 @@ export async function listInstalledPlugins(): Promise<PluginEntry[]> {
   const deps = pkg.dependencies ?? {}
   const entries: PluginEntry[] = []
   for (const [name, range] of Object.entries(deps)) {
+    if (name === MANAGED_WEB_EXTENSION) continue
     entries.push({
       name,
       // 展示时去掉 semeld 修饰符（^/~/>= 等）
@@ -82,57 +63,13 @@ async function readPackageDescription(name: string): Promise<string> {
   }
 }
 
-/**
- * 读取插件目录：优先 out/main/plugin-catalog.json（构建期复制），
- * 开发/兜底回退源码树 src/main/runtime/plugin-catalog.json。
- */
-export async function getPluginCatalog(): Promise<PluginCatalogEntry[]> {
-  const candidates = [
-    join(__dirname, 'plugin-catalog.json'),
-    join(app.getAppPath(), 'src', 'main', 'runtime', 'plugin-catalog.json')
-  ]
-  for (const file of candidates) {
-    try {
-      const raw = await readFile(file, 'utf-8')
-      const parsed = JSON.parse(raw) as CatalogFile
-      if (!Array.isArray(parsed.plugins)) continue
-      const entries: PluginCatalogEntry[] = []
-      for (const p of parsed.plugins) {
-        if (typeof p.name !== 'string' || p.name.length === 0) continue
-        entries.push({
-          name: p.name,
-          version: typeof p.version === 'string' ? p.version : '',
-          enabled: true,
-          description: typeof p.description === 'string' ? p.description : '',
-          repo: typeof p.repo === 'string' ? p.repo : undefined,
-          category: typeof p.category === 'string' ? p.category : undefined,
-          compatibility:
-            p.compatibility === 'verified' || p.compatibility === 'community'
-              ? p.compatibility
-              : undefined,
-          source: p.source === 'github' ? 'github' : 'npm',
-          installSpec:
-            p.source === 'github' && typeof p.installSpec === 'string' && p.installSpec.length > 0
-              ? p.installSpec
-              : undefined
-        })
-      }
-      return entries
-    } catch {
-      // 尝试下一个候选路径
-    }
-  }
-  logger.warn('插件目录不可读（plugin-catalog.json 缺失或损坏）')
-  return []
-}
-
-/* ── 安装 / 卸载 ── */
+/* ── 安装 ── */
 
 /** 并发保护：正在进行的插件操作（同一时刻至多一个） */
-let activeOperation: { kind: 'install' | 'remove' | 'update'; name: string } | null = null
+let activeOperation: { kind: 'install'; name: string } | null = null
 let activeChild: ChildProcess | null = null
 
-function ensureIdle(kind: 'install' | 'remove' | 'update', name: string): void {
+function ensureIdle(kind: 'install', name: string): void {
   if (activeOperation) {
     throw new Error(
       `已有插件操作进行中（${activeOperation.kind === 'install' ? '安装' : activeOperation.kind === 'remove' ? '卸载' : '更新'} ${activeOperation.name}），请稍后再试`
@@ -340,40 +277,6 @@ export async function installPlugin(
   }
 }
 
-/** 执行一次插件卸载：流程与安装对称 */
-export async function removePlugin(name: string): Promise<{ ok: boolean; message?: string }> {
-  if (!isValidPackageName(name)) {
-    return { ok: false, message: `插件名无效：${name}` }
-  }
-  const op = 'plugin-remove' as const
-  try {
-    ensureIdle('remove', name)
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : String(err) }
-  }
-
-  logger.info(`插件卸载开始：${name}`)
-  broadcastOpProgress({ op, state: 'start', message: `正在卸载 ${name}…` })
-  try {
-    await runPluginCommand('remove', name, op)
-    logger.info(`插件卸载完成：${name}`)
-    broadcastOpProgress({
-      op,
-      state: 'done',
-      percent: 100,
-      message: `${name} 已卸载，重启运行时后生效`
-    })
-    return { ok: true, message: '卸载完成，重启运行时后生效' }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`插件卸载失败：${name}：${message}`)
-    broadcastOpProgress({ op, state: 'error', message })
-    return { ok: false, message }
-  } finally {
-    clearOperation()
-  }
-}
-
 /** 是否有插件操作正在进行（供退出前判断） */
 export function hasActivePluginOperation(): boolean {
   return activeOperation !== null
@@ -390,139 +293,6 @@ export function abortActivePluginOperation(): void {
   }
 }
 
-/* ── 健康检查（插件市场 2.0） ── */
-
-/**
- * 健康检查已装插件：
- * - missing：profile 登记了依赖但 node_modules 中无该包（安装中断/被外力删除）；
- * - broken：包元数据不可读或包名不匹配；
- * - stale：目录 pin 了更高版本（有可更新项）；
- * - healthy：其余（元数据可读且版本不低于目录 pin）。
- */
-export async function checkPluginsHealth(): Promise<PluginHealthResult> {
-  const installed = await listInstalledPlugins()
-  const catalog = await getPluginCatalog()
-  const byName = new Map(catalog.map((c) => [c.name, c]))
-
-  const items: PluginHealthItem[] = []
-  for (const plugin of installed) {
-    let raw: string | null = null
-    try {
-      raw = await readFile(join(nodeModulesPackageDir(plugin.name), 'package.json'), 'utf-8')
-    } catch {
-      raw = null
-    }
-    if (!raw) {
-      items.push({
-        name: plugin.name,
-        state: 'missing',
-        detail: '已登记但未安装（node_modules 中缺少该包）'
-      })
-      continue
-    }
-    let pkg: { name?: unknown; version?: unknown } | null = null
-    try {
-      pkg = JSON.parse(raw) as { name?: unknown; version?: unknown }
-    } catch {
-      pkg = null
-    }
-    if (!pkg || typeof pkg.name !== 'string' || pkg.name !== plugin.name) {
-      items.push({
-        name: plugin.name,
-        state: 'broken',
-        detail: '包元数据损坏或名称不匹配'
-      })
-      continue
-    }
-    const installedVersion = typeof pkg.version === 'string' ? pkg.version : undefined
-    const catalogVersion = byName.get(plugin.name)?.version
-    let state: PluginHealthItem['state'] = 'healthy'
-    let detail: string | undefined
-    if (
-      installedVersion &&
-      catalogVersion &&
-      semver.valid(installedVersion) &&
-      semver.valid(catalogVersion) &&
-      semver.gt(catalogVersion, installedVersion)
-    ) {
-      state = 'stale'
-      detail = `目录已收录更新版本 v${catalogVersion}`
-    }
-    items.push({ name: plugin.name, state, installedVersion, catalogVersion, detail })
-  }
-
-  return {
-    items,
-    updatableCount: items.filter((i) => i.state === 'stale').length,
-    brokenCount: items.filter((i) => i.state === 'missing' || i.state === 'broken').length
-  }
-}
-
-/**
- * 一键全量更新：`dsh plugin --profile web update`（转发 pnpm update，
- * 按 profile 内依赖范围把全部插件刷新到兼容的最新版），
- * 全程 OpProgress 广播（op: plugin-update），完成需重启运行时生效。
- */
-export async function updateAllPlugins(): Promise<{ ok: boolean; message?: string }> {
-  const op = 'plugin-update' as const
-  try {
-    ensureIdle('update', '全部插件')
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : String(err) }
-  }
-
-  // git 直装插件在 update 时同样会被 pnpm 拦截构建：按两类来源统一预放行——
-  // ①目录 source=github 的已装插件；②profile 依赖值为 git 规格的条目（dshfind 等外源直装）。
-  try {
-    const [installed, catalog] = await Promise.all([listInstalledPlugins(), getPluginCatalog()])
-    const githubNames = new Set(
-      catalog.filter((c) => c.source === 'github').map((c) => c.name)
-    )
-    const gitSpecDeps: string[] = []
-    try {
-      const raw = await readFile(join(profileDir(), 'package.json'), 'utf-8')
-      const pkg = JSON.parse(raw) as { dependencies?: Record<string, string> }
-      for (const [depName, range] of Object.entries(pkg.dependencies ?? {})) {
-        if (/^(github:|git\+https:)/.test(range ?? '')) gitSpecDeps.push(depName)
-      }
-    } catch {
-      // profile 无依赖清单：仅按目录预放行
-    }
-    for (const plugin of installed) {
-      if (githubNames.has(plugin.name) || gitSpecDeps.includes(plugin.name)) {
-        const allowed = ensureAllowBuilds(plugin.name)
-        if (!allowed.ok) {
-          clearOperation()
-          return { ok: false, message: allowed.message }
-        }
-      }
-    }
-  } catch (err) {
-    clearOperation()
-    return { ok: false, message: `预放行检查失败：${err instanceof Error ? err.message : String(err)}` }
-  }
-
-  logger.info('插件全量更新开始')
-  broadcastOpProgress({ op, state: 'start', message: '正在全量更新插件…' })
-  try {
-    await runPluginCommand('update', '', op)
-    logger.info('插件全量更新完成')
-    broadcastOpProgress({
-      op,
-      state: 'done',
-      percent: 100,
-      message: '全部插件已更新到兼容最新版本，重启运行时后生效'
-    })
-    return { ok: true, message: '全部插件已更新，重启运行时后生效' }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.warn(`插件全量更新失败：${message}`)
-    broadcastOpProgress({ op, state: 'error', message })
-    return { ok: false, message }
-  } finally {
-    clearOperation()
-  }
-}
 
 /**
  * 运行 `dsh plugin --profile web <action> [target]`（update 无 target）：

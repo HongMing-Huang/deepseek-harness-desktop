@@ -5,22 +5,11 @@ import {
   type DiagnosticsResult,
   type MarketSearchResult,
   type OpProgress,
-  type PluginCatalogEntry,
   type PluginEntry,
-  type PluginHealthResult,
-  type Preferences,
   type RepairPortResult,
   type RuntimeStatus,
-  type SessionExportFormat,
-  type SessionsExportResult,
-  type SessionsListResult,
-  type SessionsResumeResult,
-  type SessionsSearchResult,
   type UpdaterCheckResult,
   type UpdaterStatusPayload,
-  type WorkspaceGitStatusResult,
-  type WorkspaceListDirResult,
-  type WorkspaceSummary
 } from '../shared/ipc'
 
 /**
@@ -43,35 +32,14 @@ export interface IpcContext {
 
   /* 插件（runtime/plugins.ts 实现） */
   listPlugins(): Promise<{ plugins: PluginEntry[] }>
-  getPluginCatalog(): Promise<{ catalog: PluginCatalogEntry[] }>
   installPlugin(name: string, version?: string, spec?: string): Promise<{ ok: boolean; message?: string }>
-  removePlugin(name: string): Promise<{ ok: boolean; message?: string }>
-  checkPluginsHealth(): Promise<PluginHealthResult>
-  updateAllPlugins(): Promise<{ ok: boolean; message?: string }>
   searchMarket(query: string): Promise<MarketSearchResult>
   refreshMarket(): Promise<MarketSearchResult>
-
-  /* 会话中心（sessions.ts 实现） */
-  listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>
-  listSessions(workspaceId?: string): Promise<SessionsListResult>
-  searchSessions(query: string): Promise<SessionsSearchResult>
-  exportSession(
-    sessionId: string,
-    format: SessionExportFormat,
-    includeDescendants?: boolean
-  ): Promise<SessionsExportResult>
-  resumeSession(sessionId: string): Promise<SessionsResumeResult>
-  openWorkspaceFolder(path: string): Promise<{ ok: boolean; message?: string }>
-  openPluginsWindow(): { ok: boolean }
-  openSessionsWindow(): { ok: boolean }
-  listDirectory(path: string): Promise<WorkspaceListDirResult>
-  workspaceGitStatus(path: string): Promise<WorkspaceGitStatusResult>
 
   /* 配置 */
   getConfig(): Promise<ConfigState>
   saveApiKey(key: string): Promise<{ ok: boolean; message?: string }>
   saveDefaultModel(model: string): Promise<{ ok: boolean; message?: string }>
-  savePreferences(patch: Partial<Preferences>): Promise<Preferences>
 }
 
 export function registerIpcHandlers(ctx: IpcContext): void {
@@ -90,52 +58,22 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.ConfigGet, () => ctx.getConfig())
   ipcMain.handle(IpcChannels.ConfigSaveApiKey, (_e, key: string) => ctx.saveApiKey(key))
   ipcMain.handle(IpcChannels.ConfigSaveModel, (_e, model: string) => ctx.saveDefaultModel(model))
-  ipcMain.handle(IpcChannels.ConfigSavePreferences, (_e, patch: Partial<Preferences>) =>
-    ctx.savePreferences(patch)
-  )
 
   /* 插件（runtime/plugins.ts） */
   ipcMain.handle(IpcChannels.PluginsList, () => ctx.listPlugins())
-  ipcMain.handle(IpcChannels.PluginsCatalog, () => ctx.getPluginCatalog())
   ipcMain.handle(IpcChannels.PluginsInstall, (_e, name: string, version?: string, spec?: string) =>
     ctx.installPlugin(name, version, spec)
   )
-  ipcMain.handle(IpcChannels.PluginsRemove, (_e, name: string) => ctx.removePlugin(name))
-  ipcMain.handle(IpcChannels.PluginsHealth, () => ctx.checkPluginsHealth())
-  ipcMain.handle(IpcChannels.PluginsUpdateAll, () => ctx.updateAllPlugins())
   ipcMain.handle(IpcChannels.PluginsMarketSearch, (_e, query: string) => ctx.searchMarket(query))
   ipcMain.handle(IpcChannels.PluginsMarketRefresh, () => ctx.refreshMarket())
 
-  /* 会话中心（sessions.ts） */
-  ipcMain.handle(IpcChannels.SessionsWorkspaces, () => ctx.listWorkspaces())
-  ipcMain.handle(IpcChannels.SessionsList, (_e, workspaceId?: string) =>
-    ctx.listSessions(workspaceId)
-  )
-  ipcMain.handle(IpcChannels.SessionsSearch, (_e, query: string) => ctx.searchSessions(query))
-  ipcMain.handle(
-    IpcChannels.SessionsExport,
-    (_e, sessionId: string, format: SessionExportFormat, includeDescendants?: boolean) =>
-      ctx.exportSession(sessionId, format, includeDescendants)
-  )
-  ipcMain.handle(IpcChannels.SessionsResume, (_e, sessionId: string) =>
-    ctx.resumeSession(sessionId)
-  )
-  ipcMain.handle(IpcChannels.SessionsOpenFolder, (_e, path: string) =>
-    ctx.openWorkspaceFolder(path)
-  )
-  ipcMain.handle(IpcChannels.ShellOpenPlugins, () => ctx.openPluginsWindow())
-  ipcMain.handle(IpcChannels.ShellOpenSessions, () => ctx.openSessionsWindow())
-  ipcMain.handle(IpcChannels.WorkspaceListDir, (_e, path: string) => ctx.listDirectory(path))
-  ipcMain.handle(IpcChannels.WorkspaceGitStatus, (_e, path: string) =>
-    ctx.workspaceGitStatus(path)
-  )
 }
 
 /* ── 事件广播：向所有应用自有页面推送 ── */
 
 /**
  * 广播目标 = 全部应用自有页面的 webContents：
- * - BrowserWindow 页面（splash / settings / plugins）；
+ * - BrowserWindow 页面（splash）；
  * - 后续如新增 WebContentsView 页面同样被覆盖 ——
  *   BrowserWindow.getAllWindows() 遍历不到子视图，因此改用
  *   webContents.getAllWebContents() 按 URL 过滤：
