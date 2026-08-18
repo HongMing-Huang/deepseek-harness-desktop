@@ -1,206 +1,183 @@
-/* ============================================================
-   Deepseek 官网交互脚本（零依赖）
-   职责：
-   1. 按 navigator.userAgent 推荐下载平台（Mac arm64/x64、Linux x64/arm64）；
-   2. 构建指向 GitHub Releases latest 无版本号副本资产的下载链接；
-   3. 填充 GitHub 仓库/Releases 链接与页脚版本徽章（失败静默隐藏）。
-   本地预览：直接用浏览器打开 index.html，可用 ?owner=<GitHub 用户名> 覆盖占位 owner。
-   ============================================================ */
-
 'use strict';
 
-// 建仓后替换为真实 owner（GitHub 用户名或组织名）
-// 提交官网上线前务必修改，否则下载链接与版本徽章无法工作
-const OWNER_PLACEHOLDER = 'HongMing-Huang';
-
+const DEFAULT_OWNER = 'HongMing-Huang';
 const REPO_NAME = 'deepseek-harness-desktop';
+const OWNER = new URLSearchParams(window.location.search).get('owner') || DEFAULT_OWNER;
 
-/* ---------- owner 解析：URL 参数 > 占位常量 ---------- */
-const urlParams = new URLSearchParams(window.location.search);
-const OWNER = urlParams.get('owner') || OWNER_PLACEHOLDER;
-const isPlaceholderOwner = OWNER === OWNER_PLACEHOLDER;
+const ASSETS = [
+  { id: 'mac-arm64', os: 'mac', arch: 'arm64', ext: 'dmg', kind: 'dmg', label: 'macOS arm64 · dmg' },
+  { id: 'linux-x64', os: 'linux', arch: 'amd64', ext: 'deb', kind: 'deb', label: 'Linux x64 · deb' }
+];
 
-/* ---------- 链接构建 ---------- */
-function releaseAssetUrl(fileName) {
-  return `https://github.com/${OWNER}/${REPO_NAME}/releases/latest/download/${fileName}`;
-}
-function repoUrl() {
-  return `https://github.com/${OWNER}/${REPO_NAME}`;
-}
-function releasesUrl() {
-  return `${repoUrl()}/releases`;
-}
+function repoUrl() { return `https://github.com/${OWNER}/${REPO_NAME}`; }
+function releasesUrl() { return `${repoUrl()}/releases`; }
+function assetUrl(fileName) { return `${releasesUrl()}/latest/download/${fileName}`; }
+function assetFileName(asset, version) { return `deepseek-harness-desktop-${version}-${asset.os}-${asset.arch}.${asset.ext}`; }
 
-/* 最新发布缓存：资产名含版本号，先经 GitHub API 解析 latest 版本再拼文件名 */
-let cachedRelease = null;
 async function fetchLatestRelease() {
-  if (cachedRelease) return cachedRelease;
-  if (isPlaceholderOwner) return null;
   try {
-    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO_NAME}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json' }
-    });
-    if (!res.ok) return null;
-    const release = await res.json();
-    if (!release || typeof release.tag_name !== 'string') return null;
-    cachedRelease = release;
-    return release;
-  } catch {
-    return null;
-  }
+    const response = await fetch(`https://api.github.com/repos/${OWNER}/${REPO_NAME}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!response.ok) return null;
+    const release = await response.json();
+    return typeof release.tag_name === 'string' ? release : null;
+  } catch { return null; }
 }
 
-/* ---------- 平台检测 ----------
-   说明：浏览器 UA 无法可靠区分 arm64/x64（Apple Silicon Safari UA 仍含
-   "Intel Mac OS X" 兼容字样），因此按主流硬件给出推荐位，其余组合以
-   小按钮平铺，用户可自行选择。 */
 function detectPlatform() {
   const ua = navigator.userAgent;
-  const isAndroid = /Android/i.test(ua);
-  if (/Macintosh|Mac OS X/i.test(ua)) {
-    return { os: 'mac', arch: 'arm64', label: 'macOS · Apple Silicon' };
-  }
-  if (/Linux|X11|Ubuntu/i.test(ua) && !isAndroid) {
-    return { os: 'linux', arch: 'x64', label: 'Linux · x64' };
-  }
+  if (/Macintosh|Mac OS X/i.test(ua)) return { id: 'mac-arm64', label: 'macOS · Apple Silicon' };
+  if (/Linux|X11|Ubuntu/i.test(ua) && !/Android/i.test(ua)) return { id: 'linux-x64', label: 'Linux · x64' };
   return null;
 }
 
-/* ---------- 产物目录：与 electron-builder.yml artifactName 对齐 ----------
-   文件名含版本号（如 deepseek-harness-desktop-0.1.1-mac-arm64.dmg），
-   下载链接在运行时用 releases/latest 的 tag 动态拼接。 */
-const ASSETS = [
-  { id: 'mac-arm64',   os: 'mac',   arch: 'arm64',  ext: 'dmg',       kind: 'dmg',      label: 'macOS arm64 · dmg' },
-  { id: 'mac-x64',     os: 'mac',   arch: 'x64',    ext: 'dmg',       kind: 'dmg',      label: 'macOS x64 · dmg' },
-  { id: 'linux-x64',   os: 'linux', arch: 'amd64',  ext: 'deb',       kind: 'deb',      label: 'Linux x64 · deb' },
-  { id: 'linux-x64-ai',os: 'linux', arch: 'x86_64', ext: 'AppImage',  kind: 'AppImage', label: 'Linux x64 · AppImage' },
-  { id: 'linux-arm64', os: 'linux', arch: 'arm64',  ext: 'deb',       kind: 'deb',      label: 'Linux arm64 · deb' },
-  { id: 'linux-arm64-ai',os:'linux',arch: 'arm64',  ext: 'AppImage',  kind: 'AppImage', label: 'Linux arm64 · AppImage' }
-];
-
-function assetFileName(asset, version) {
-  return `deepseek-harness-desktop-${version}-${asset.os}-${asset.arch}.${asset.ext}`;
-}
-
-/* ---------- SVG 图标 ---------- */
-const ICONS = {
-  apple: '<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M16.7 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.3 2.9 2.3 1.2 0 1.6-.7 3-.7 1.4 0 1.8.7 3 .7 1.2 0 2-1.1 2.8-2.2.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.5ZM14.4 5.6c.6-.8 1-1.8.9-2.9-.9.1-2 .6-2.7 1.4-.6.7-1.1 1.8-.9 2.8 1 .1 2.1-.5 2.7-1.3Z"/></svg>',
-  linux: '<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M12 2c-2 4.2-7 4.7-7 10.5a7 7 0 0 0 14 0C19 6.7 14 6.2 12 2Zm0 3.5c1.4 1.7 3.3 2.5 3.8 5H8.2c.5-2.5 2.4-3.3 3.8-5Zm0 14a4.5 4.5 0 0 1-4.4-3.6c.5.5 1.4 1.1 2.4 1.1.7 0 1.2-.9 2-1.2.8.3 1.4 1.2 2.1 1.2 1 0 1.8-.6 2.3-1.1A4.5 4.5 0 0 1 12 19.5Z"/></svg>',
-  download: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>',
-  package: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 8v8a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8ZM3.3 7 12 12l8.7-5M12 22V12"/></svg>'
-};
-
-function osIcon(os) {
-  return os === 'mac' ? ICONS.apple : ICONS.linux;
-}
-
-/* 将静态 SVG 字符串解析为节点（内容均为本文件内写死的常量，无外部数据） */
-function svgEl(svgString) {
-  const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-  return doc.documentElement;
-}
-
-/* ---------- 渲染下载区 ---------- */
 async function renderDownloads() {
   const primaryBox = document.getElementById('dl-primary');
   const othersBox = document.getElementById('dl-others');
   if (!primaryBox || !othersBox) return;
-
   const release = await fetchLatestRelease();
-  const version = release ? release.tag_name.replace(/^v/, '') : null;
+  const version = release?.tag_name.replace(/^v/, '');
   const current = detectPlatform();
+  const ordered = [...ASSETS].sort((a, b) => (a.id === current?.id ? -1 : b.id === current?.id ? 1 : 0));
 
-  // 主按钮：推荐平台（Mac → dmg；Linux → deb）；无版本信息或未知平台 → Releases 页
-  const preferred =
-    version && current
-      ? ASSETS.find(a => a.os === current.os && a.arch === current.arch && a.kind !== 'AppImage')
-      : null;
-
-  if (preferred && version) {
-    const fileName = assetFileName(preferred, version);
-    const a = document.createElement('a');
-    a.className = 'btn-dl btn-dl-main';
-    a.href = releaseAssetUrl(fileName);
-    a.setAttribute('download', fileName);
-    a.appendChild(svgEl(osIcon(preferred.os)));
-    const label = document.createElement('span');
-    label.textContent = `下载 for ${preferred.label}`;
-    const kind = document.createElement('span');
-    kind.className = 'btn-os';
-    kind.textContent = preferred.kind;
-    a.append(label, kind);
-    primaryBox.appendChild(a);
-  } else {
-    const a = document.createElement('a');
-    a.className = 'btn-dl btn-dl-main';
-    a.href = releasesUrl();
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.appendChild(svgEl(ICONS.package));
-    const label = document.createElement('span');
-    label.textContent = '前往 Releases 下载';
-    a.appendChild(label);
-    primaryBox.appendChild(a);
-  }
-
-  // 次按钮：非推荐平台的其余组合；无版本信息时全部指向 Releases 页
-  const others = ASSETS.filter(a => !(preferred && a.id === preferred.id));
-  for (const asset of others) {
-    const a = document.createElement('a');
-    a.className = 'btn-dl';
+  for (const [index, asset] of ordered.entries()) {
+    const link = document.createElement('a');
+    link.className = index === 0 ? 'btn-dl btn-dl-main' : 'btn-dl';
+    link.textContent = index === 0 && current ? `下载 for ${asset.label}` : asset.label;
     if (version) {
-      const fileName = assetFileName(asset, version);
-      a.href = releaseAssetUrl(fileName);
-      a.setAttribute('download', fileName);
+      const name = assetFileName(asset, version);
+      link.href = assetUrl(name);
+      link.setAttribute('download', name);
     } else {
-      a.href = releasesUrl();
-      a.target = '_blank';
-      a.rel = 'noopener';
+      link.href = releasesUrl();
+      link.target = '_blank';
+      link.rel = 'noopener';
     }
-    a.textContent = asset.label;
-    othersBox.appendChild(a);
+    (index === 0 ? primaryBox : othersBox).appendChild(link);
   }
-
-  // 占位 owner 提示（预览模式）
-  if (isPlaceholderOwner) {
-    const hint = document.getElementById('dl-hint');
-    if (hint) {
-      hint.hidden = false;
-      hint.textContent = '预览模式：owner 尚未配置，下载链接暂不可用。可追加 URL 参数 ?owner=<GitHub 用户名> 预览真实链接；上线前请替换 app.js 中的 OWNER_PLACEHOLDER。';
-    }
-  }
+  const platformLabel = document.getElementById('detected-platform');
+  if (platformLabel) platformLabel.textContent = current ? current.label : '选择你的平台';
 }
 
-/* ---------- 填充 GitHub 链接 ---------- */
 function renderGitHubLinks() {
-  const links = document.querySelectorAll('[data-github-link]');
-  for (const el of links) el.href = repoUrl();
-  const rel = document.querySelectorAll('[data-github-releases]');
-  for (const el of rel) el.href = releasesUrl();
+  document.querySelectorAll('[data-github-link]').forEach(link => { link.href = repoUrl(); });
+  document.querySelectorAll('[data-github-releases]').forEach(link => { link.href = releasesUrl(); });
 }
 
-/* ---------- 版本徽章：GitHub API，失败静默隐藏 ---------- */
-async function renderVersionBadge() {
-  const badge = document.getElementById('version-badge');
-  if (!badge || isPlaceholderOwner) return;
+function bindOfficialHeroBackground() {
+  const fluid = document.getElementById('fluid-field');
+  const dots = document.getElementById('dot-field');
+  if (!fluid || !dots || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fluidContext = fluid.getContext('2d');
+  const dotContext = dots.getContext('2d');
+  if (!fluidContext || !dotContext) return;
 
-  try {
-    const release = await fetchLatestRelease();
-    if (!release || !release.tag_name) return;
+  let width = 0;
+  let height = 0;
+  let lastFrame = 0;
+  let particleList = [];
+  const mouse = { x: .5, y: .5, smoothX: .5, smoothY: .5, vx: 0, vy: 0, inputVX: 0, inputVY: 0, active: false };
 
-    document.getElementById('version-tag').textContent = release.tag_name;
-    const dateEl = document.getElementById('version-date');
-    if (release.published_at) {
-      const d = new Date(release.published_at);
-      dateEl.textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-    badge.hidden = false;
-  } catch {
-    // 网络失败 / API 限流：保持隐藏即可，不打扰访客
+  function resize(canvas, context) {
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
+
+  function reset() {
+    width = fluid.clientWidth;
+    height = fluid.clientHeight;
+    resize(fluid, fluidContext);
+    resize(dots, dotContext);
+    particleList = [];
+    for (let y = height * .22; y < height * .72; y += 9) {
+      for (let x = width * .34; x < width * .76; x += 9) {
+        if (Math.random() > .33) particleList.push({ restX: x, restY: y, x, y, vx: 0, vy: 0 });
+      }
+    }
+  }
+
+  function drawFluid(time) {
+    fluidContext.clearRect(0, 0, width, height);
+    const x = mouse.smoothX * width;
+    const y = mouse.smoothY * height;
+    const velocity = Math.min(1, Math.hypot(mouse.vx, mouse.vy) * 1.8);
+    const fields = [
+      [width * .05 + Math.sin(time * .00018) * 45, height * .02, 310, 'rgba(255,247,209,.34)'],
+      [width * .89 + Math.cos(time * .00016) * 50, height * .10, 350, 'rgba(255,247,209,.29)'],
+      [width * .62, height * .64, 390, 'rgba(88,151,218,.28)'],
+      [x - mouse.vx * 1.15, y - mouse.vy * 1.15, 210 + velocity * 165, 'rgba(229,245,255,.28)'],
+      [x - mouse.vx * 2.8, y - mouse.vy * 2.8, 145 + velocity * 115, 'rgba(185,225,255,.16)'],
+      [x - mouse.vx * 5.1, y - mouse.vy * 5.1, 85 + velocity * 75, 'rgba(174,220,255,.06)']
+    ];
+    for (const [fieldX, fieldY, radius, color] of fields) {
+      const gradient = fluidContext.createRadialGradient(fieldX, fieldY, 0, fieldX, fieldY, radius);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(.48, 'rgba(190,222,255,.06)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      fluidContext.fillStyle = gradient;
+      fluidContext.beginPath();
+      fluidContext.ellipse(fieldX, fieldY, radius * 1.48, radius * .36, -.48, 0, Math.PI * 2);
+      fluidContext.fill();
+    }
+  }
+
+  function drawDots() {
+    dotContext.clearRect(0, 0, width, height);
+    const mouseX = mouse.smoothX * width;
+    const mouseY = mouse.smoothY * height;
+    for (const particle of particleList) {
+      const dx = particle.x - mouseX;
+      const dy = particle.y - mouseY;
+      const distance = Math.hypot(dx, dy);
+      if (mouse.active && distance < 220 && distance > .1) {
+        const force = (1 - distance / 220) * (4 + Math.min(9, Math.hypot(mouse.vx, mouse.vy) * .22));
+        particle.vx += (dx / distance) * force;
+        particle.vy += (dy / distance) * force;
+      }
+      particle.vx += (particle.restX - particle.x) * .05;
+      particle.vy += (particle.restY - particle.y) * .05;
+      particle.vx *= .85;
+      particle.vy *= .85;
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      const speed = Math.abs(particle.vx) + Math.abs(particle.vy);
+      dotContext.fillStyle = `rgba(226,241,255,${.17 + Math.min(speed, 1) * .56})`;
+      const size = 1.3 + Math.min(speed, 1) * 2;
+      dotContext.fillRect(particle.x - size / 2, particle.y - size / 2, size, size);
+    }
+  }
+
+  function frame(time) {
+    requestAnimationFrame(frame);
+    if (time - lastFrame < 1000 / 30) return;
+    lastFrame = time;
+    mouse.smoothX += (mouse.x - mouse.smoothX) * .1;
+    mouse.smoothY += (mouse.y - mouse.smoothY) * .1;
+    mouse.vx += (mouse.inputVX - mouse.vx) * .18;
+    mouse.vy += (mouse.inputVY - mouse.vy) * .18;
+    mouse.inputVX *= .83;
+    mouse.inputVY *= .83;
+    drawFluid(time);
+    drawDots();
+  }
+
+  window.addEventListener('pointermove', event => {
+    const rect = fluid.getBoundingClientRect();
+    const nextX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const nextY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    mouse.inputVX = (nextX - mouse.x) * width;
+    mouse.inputVY = (nextY - mouse.y) * height;
+    mouse.x = nextX;
+    mouse.y = nextY;
+    mouse.active = event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }, { passive: true });
+  window.addEventListener('pointerleave', () => { mouse.active = false; });
+  window.addEventListener('resize', reset, { passive: true });
+  reset();
+  requestAnimationFrame(frame);
 }
 
-/* ---------- 入口 ---------- */
 renderGitHubLinks();
+bindOfficialHeroBackground();
 void renderDownloads();
-void renderVersionBadge();
