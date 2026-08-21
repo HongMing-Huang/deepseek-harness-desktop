@@ -4,7 +4,7 @@
  */
 
 /** 内嵌 dsh（DeepSeek Harness）版本 */
-export const DSH_VERSION = '0.1.0-rc.6'
+export const DSH_VERSION = '0.1.1-rc.1'
 /** 内嵌 pnpm 版本 */
 export const PNPM_VERSION = '10.30.2'
 /** 内嵌 Node 主版本（取该主版本下最新 LTS 小版本） */
